@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   timeInFrames: 1
-  timeAreaShownRange: {x: -1.2727365, y: 93.41886}
+  timeAreaShownRange: {x: -1.8147061, y: 133.19942}
   showAudioWaveform: 1
   trackScale: 1
   playRangeEnabled: 0
@@ -28,7 +28,7 @@ MonoBehaviour:
   - {fileID: -3265019324207404110, guid: 90bb0faca45821c41af09aff4bcc70fe, type: 2}
   - {fileID: -7053478392402506160, guid: 90bb0faca45821c41af09aff4bcc70fe, type: 2}
   - {fileID: -7499520967328769432, guid: 90bb0faca45821c41af09aff4bcc70fe, type: 2}
-  - {fileID: 8893608819885503542, guid: 90bb0faca45821c41af09aff4bcc70fe, type: 2}
+  - {fileID: -4232142621388125309, guid: 90bb0faca45821c41af09aff4bcc70fe, type: 2}
   m_Vals:
   - collapsed: 0
     showMarkers: 1
@@ -244,12 +244,12 @@ MonoBehaviour:
     showMarkers: 1
     showInlineCurves: 0
     inlineAnimationCurveHeight: 100
-    lastInlineCurveDataID: 24536
+    lastInlineCurveDataID: -1
     inlineCurvesState:
       scrollPos: {x: 0, y: 0}
       m_SelectedIDs: 
       m_LastClickedID: 0
-      m_ExpandedIDs: 00000080ffffffff
+      m_ExpandedIDs: 
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -269,9 +269,9 @@ MonoBehaviour:
       m_SearchString: 
     inlineCurvesShownAreaInsideMargins:
       serializedVersion: 2
-      x: 1.6999631
-      y: -14.30027
-      width: 25.441519
-      height: 377.8792
-    m_MarkerTimeStampsKeys: 906cffff
-    m_MarkerTimeStampsValues: 161d2f9d57d4d808
+      x: 1
+      y: 1
+      width: 1
+      height: 1
+    m_MarkerTimeStampsKeys: 
+    m_MarkerTimeStampsValues: 
