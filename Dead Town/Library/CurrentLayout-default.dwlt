@@ -21,7 +21,7 @@ MonoBehaviour:
   m_ShowMode: 4
   m_Title: 
   m_RootView: {fileID: 2}
-  m_MinSize: {x: 875, y: 542}
+  m_MinSize: {x: 875, y: 300}
   m_MaxSize: {x: 10000, y: 10000}
   m_Maximized: 1
 --- !u!114 &2
@@ -46,7 +46,7 @@ MonoBehaviour:
     y: 0
     width: 1536
     height: 821
-  m_MinSize: {x: 875, y: 542}
+  m_MinSize: {x: 875, y: 300}
   m_MaxSize: {x: 10000, y: 10000}
 --- !u!114 &3
 MonoBehaviour:
@@ -115,7 +115,7 @@ MonoBehaviour:
   m_MinSize: {x: 679, y: 492}
   m_MaxSize: {x: 14002, y: 14042}
   vertical: 0
-  controlID: 167
+  controlID: 144
 --- !u!114 &6
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -140,7 +140,7 @@ MonoBehaviour:
   m_MinSize: {x: 403, y: 492}
   m_MaxSize: {x: 10001, y: 14042}
   vertical: 1
-  controlID: 168
+  controlID: 145
 --- !u!114 &7
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -165,7 +165,7 @@ MonoBehaviour:
   m_MinSize: {x: 403, y: 221}
   m_MaxSize: {x: 8003, y: 4021}
   vertical: 0
-  controlID: 169
+  controlID: 146
 --- !u!114 &8
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -399,10 +399,10 @@ MonoBehaviour:
   m_ViewDataDictionary: {fileID: 0}
   m_SceneHierarchy:
     m_TreeViewState:
-      scrollPos: {x: 0, y: 139}
-      m_SelectedIDs: 2a760000
+      scrollPos: {x: 0, y: 0}
+      m_SelectedIDs: 
       m_LastClickedID: 0
-      m_ExpandedIDs: 66fbffff904b000018610000
+      m_ExpandedIDs: cae8ffffd2f2ffff66fbffff824f00002851000012610000ec640000
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -462,9 +462,9 @@ MonoBehaviour:
   m_PlayAudio: 0
   m_AudioPlay: 0
   m_Position:
-    m_Target: {x: 16.235136, y: 9.977601, z: 63.62489}
+    m_Target: {x: 3.4931498, y: 21.322239, z: 60.30714}
     speed: 2
-    m_Value: {x: 16.235136, y: 9.977601, z: 63.62489}
+    m_Value: {x: 3.4931498, y: 21.322239, z: 60.30714}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 0
@@ -510,13 +510,13 @@ MonoBehaviour:
     m_GridAxis: 1
     m_gridOpacity: 0.5
   m_Rotation:
-    m_Target: {x: -0.13118236, y: 0.088430665, z: -0.007909986, w: -0.98774475}
+    m_Target: {x: 0.025615366, y: 0.6571863, z: -0.029055884, w: 0.7532469}
     speed: 2
-    m_Value: {x: -0.13114613, y: 0.086917184, z: -0.007710386, w: -0.9875154}
+    m_Value: {x: 0.025648981, y: 0.6558016, z: -0.029006187, w: 0.7539397}
   m_Size:
-    m_Target: 14.610425
+    m_Target: 5.3275847
     speed: 2
-    m_Value: 13.981268
+    m_Value: 5.627585
   m_Ortho:
     m_Target: 0
     speed: 2
@@ -711,20 +711,20 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Materials/Substance/Moss_Wood
+    - Assets/Materials/Substance/Made_Mats
   m_ViewMode: 1
   m_StartGridSize: 64
   m_LastFolders:
-  - Assets/Materials/Substance/Moss_Wood
+  - Assets/Materials/Substance/Made_Mats
   m_LastFoldersGridSize: -1
   m_LastProjectPath: C:\Users\giant\Documents\GitHub\DeadTownV2\Dead Town
   m_LockTracker:
     m_IsLocked: 0
   m_FolderTreeState:
-    scrollPos: {x: 0, y: 197}
-    m_SelectedIDs: 44730000
-    m_LastClickedID: 29508
-    m_ExpandedIDs: 00000000a0410000826700008467000086670000d8680000ea68000056690000586900005a6900004073000044730000
+    scrollPos: {x: 0, y: 151}
+    m_SelectedIDs: 06690000
+    m_LastClickedID: 26886
+    m_ExpandedIDs: 00000000a0410000846700008667000088670000e0680000e2680000e468000008690000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -752,7 +752,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 00000000826700008467000086670000
+    m_ExpandedIDs: 00000000846700008667000088670000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -807,7 +807,7 @@ MonoBehaviour:
     m_ScrollPosition: {x: 0, y: 0}
     m_GridSize: 64
   m_SkipHiddenPackages: 0
-  m_DirectoriesAreaWidth: 116
+  m_DirectoriesAreaWidth: 193
 --- !u!114 &19
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -955,6 +955,8 @@ MonoBehaviour:
     height: 750
   m_ViewDataDictionary: {fileID: 0}
   modes:
+  - {fileID: 0}
+  - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
