@@ -115,7 +115,7 @@ MonoBehaviour:
   m_MinSize: {x: 540, y: 492}
   m_MaxSize: {x: 14002, y: 14042}
   vertical: 0
-  controlID: 35
+  controlID: 148
 --- !u!114 &6
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -140,7 +140,7 @@ MonoBehaviour:
   m_MinSize: {x: 403, y: 492}
   m_MaxSize: {x: 10001, y: 14042}
   vertical: 1
-  controlID: 36
+  controlID: 149
 --- !u!114 &7
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -165,7 +165,7 @@ MonoBehaviour:
   m_MinSize: {x: 403, y: 221}
   m_MaxSize: {x: 8003, y: 4021}
   vertical: 0
-  controlID: 37
+  controlID: 150
 --- !u!114 &8
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -399,10 +399,10 @@ MonoBehaviour:
   m_ViewDataDictionary: {fileID: 0}
   m_SceneHierarchy:
     m_TreeViewState:
-      scrollPos: {x: 0, y: 32}
+      scrollPos: {x: 0, y: 0}
       m_SelectedIDs: 8af0ffff
       m_LastClickedID: -3958
-      m_ExpandedIDs: 66fbffff52440000
+      m_ExpandedIDs: 66fbffff
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -462,9 +462,9 @@ MonoBehaviour:
   m_PlayAudio: 0
   m_AudioPlay: 0
   m_Position:
-    m_Target: {x: -52.99943, y: 15.849748, z: -73.863594}
+    m_Target: {x: -53.395584, y: 15.695991, z: -74.11443}
     speed: 2
-    m_Value: {x: -52.99943, y: 15.849748, z: -73.863594}
+    m_Value: {x: -53.395584, y: 15.695991, z: -74.11443}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 0
@@ -510,13 +510,13 @@ MonoBehaviour:
     m_GridAxis: 1
     m_gridOpacity: 0.5
   m_Rotation:
-    m_Target: {x: -0.034097537, y: -0.71731585, z: -0.041739892, w: 0.6954075}
+    m_Target: {x: 0.06446838, y: -0.75204843, z: 0.0674627, w: 0.65326726}
     speed: 2
-    m_Value: {x: -0.03817595, y: -0.71772164, z: -0.046080757, w: 0.69375426}
+    m_Value: {x: 0.06385315, y: -0.7478255, z: 0.06591707, w: 0.6575216}
   m_Size:
-    m_Target: 5.721291
+    m_Target: 4.1964474
     speed: 2
-    m_Value: 6.0212913
+    m_Value: 3.8964474
   m_Ortho:
     m_Target: 0
     speed: 2
@@ -711,19 +711,19 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Images
+    - Assets/Materials/Substance/Made_Mats
   m_ViewMode: 1
   m_StartGridSize: 64
   m_LastFolders:
-  - Assets/Images
+  - Assets/Materials/Substance/Made_Mats
   m_LastFoldersGridSize: -1
   m_LastProjectPath: C:\Users\giant\Documents\GitHub\DeadTownV2\Dead Town
   m_LockTracker:
     m_IsLocked: 0
   m_FolderTreeState:
     scrollPos: {x: 0, y: 0}
-    m_SelectedIDs: 9a4c0000
-    m_LastClickedID: 19610
+    m_SelectedIDs: 104e0000
+    m_LastClickedID: 19984
     m_ExpandedIDs: 00000000ca410000984c00009a4c00009c4c00009e4c0000a04c0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
@@ -955,6 +955,7 @@ MonoBehaviour:
     height: 750
   m_ViewDataDictionary: {fileID: 0}
   modes:
+  - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
