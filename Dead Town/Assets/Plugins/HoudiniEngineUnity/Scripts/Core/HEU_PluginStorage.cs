@@ -135,21 +135,21 @@ namespace HoudiniEngineUnity
 	public static void SetCurrentCulture(bool useInvariant)
 	{
 #if NET_4_6
-	    if (useInvariant)
-	    {
-		// DefaultThreadCurrentCulture could be null in which case save the CurrentCulture into it
-		if (System.Globalization.CultureInfo.DefaultThreadCurrentCulture == null)
-		{
-		    System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Threading.Thread.CurrentThread.CurrentCulture;
-		}
-
-		System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
-	    }
-	    else if (System.Globalization.CultureInfo.DefaultThreadCurrentCulture != null)
-	    {
-		// Only reset to default if DefaultThreadCurrentCulture is not null otherwise we get error
-		System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.DefaultThreadCurrentCulture;
-	    }
+			if(useInvariant)
+			{
+				// DefaultThreadCurrentCulture could be null in which case save the CurrentCulture into it
+				if (System.Globalization.CultureInfo.DefaultThreadCurrentCulture == null)
+				{
+					System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Threading.Thread.CurrentThread.CurrentCulture;
+				}
+				
+				System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
+			}
+			else if(System.Globalization.CultureInfo.DefaultThreadCurrentCulture != null)
+			{
+				// Only reset to default if DefaultThreadCurrentCulture is not null otherwise we get error
+				System.Threading.Thread.CurrentThread.CurrentCulture = System.Globalization.CultureInfo.DefaultThreadCurrentCulture;
+			}
 #endif
 	}
 
@@ -609,28 +609,6 @@ namespace HoudiniEngineUnity
 	    }
 #endif
 	    return sessions;
-	}
-
-	/// <summary>
-	/// Removes the session data file.
-	/// </summary>
-	public static void DeleteAllSavedSessionData()
-	{
-#if UNITY_EDITOR
-	    string path = SessionFilePath();
-	    try
-	    {
-		if (File.Exists(path))
-		{
-		    File.Delete(SessionFilePath());
-		}
-	    }
-	    catch (System.Exception ex)
-	    {
-		Debug.LogErrorFormat("Unable to deletion session file: {0}. Exception: {1}", path, ex.ToString());
-	    }
-	    
-#endif
 	}
 
 	/// <summary>

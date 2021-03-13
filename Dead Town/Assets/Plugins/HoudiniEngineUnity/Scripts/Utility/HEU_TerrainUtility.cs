@@ -77,13 +77,8 @@ namespace HoudiniEngineUnity
 		// The height values will be mapped over this terrain size.
 		float gridSpacingX = scale.x * 2f;
 		float gridSpacingY = scale.y * 2f;
-
-		// Subtracting 1 to account for the corner sampling.
-		// In HEU_InputInterfaceTerrain::GenerateTerrainDataFromGameObject we add voxel size to
-		// account for corner sampling as well. This ensures maintaining the size
-		// when roundtripping the terrain.
-		float terrainSizeX = Mathf.Round((volumeInfo.xLength - 1) * gridSpacingX);
-		float terrainSizeY = Mathf.Round((volumeInfo.yLength - 1) * gridSpacingY);
+		float terrainSizeX = Mathf.Round((volumeInfo.xLength) * gridSpacingX);
+		float terrainSizeY = Mathf.Round((volumeInfo.yLength) * gridSpacingY);
 
 		//Debug.LogFormat("volumeInfo: {0}x{1}", volumeInfo.xLength, volumeInfo.yLength);
 		//Debug.LogFormat("GS = {0}x{1}, Size = {2}x{3}", gridSpacingX, gridSpacingY, terrainSizeX, terrainSizeY);
@@ -256,29 +251,19 @@ namespace HoudiniEngineUnity
 	{
 	    // Use material specified in Plugin settings.
 	    string terrainMaterialPath = string.IsNullOrEmpty(specifiedMaterialName) ? HEU_PluginSettings.DefaultTerrainMaterial :
-	        specifiedMaterialName;
+		    specifiedMaterialName;
 	    if (!string.IsNullOrEmpty(terrainMaterialPath))
 	    {
-	        Material material = HEU_MaterialFactory.LoadUnityMaterial(terrainMaterialPath);
-	        if (material != null)
-	        {
-	            #if UNITY_2019_2_OR_NEWER
-	                terrain.materialTemplate = material;
-	            #else
-	                terrain.materialType = Terrain.MaterialType.Custom;
-	                terrain.materialTemplate = material;
-	            #endif
-	        } 
-	        else
-	        {
-	            Debug.LogWarning("Warning: Specified material does not exist!");
-	        }
-	    }
-	    else
-	    {
-	        #if UNITY_2019_2_OR_NEWER
-		     terrain.materialTemplate = HEU_MaterialFactory.LoadUnityMaterial("Resources/unity_builtin_extra::name::Default-Terrain-Diffuse");
-		#endif
+		Material material = HEU_MaterialFactory.LoadUnityMaterial(terrainMaterialPath);
+		if (material != null)
+		{
+#if UNITY_2019_2_OR_NEWER
+		    terrain.materialTemplate = material;
+#else
+					terrain.materialType = Terrain.MaterialType.Custom;
+					terrain.materialTemplate = material;
+#endif
+		}
 	    }
 
 	    // TODO: If none specified, guess based on Render settings?
@@ -323,7 +308,6 @@ namespace HoudiniEngineUnity
 	    }
 
 	    heightRange = (maxHeight - minHeight);
-	    //Debug.LogFormat("HF min={0}, max={1}, range={2}", minHeight, maxHeight, heightRange);
 
 	    // Use the override height range if user has set via attribute
 	    bool bHeightRangeOverriden = false;

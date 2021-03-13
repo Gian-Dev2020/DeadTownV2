@@ -33,21 +33,6 @@ using UnityEngine;
 
 namespace HoudiniEngineUnity
 {
-    [Serializable]
-    public enum SessionConnectionState
-    {
-	NOT_CONNECTED,
-	CONNECTED,
-	FAILED_TO_CONNECT
-    }
-
-    [Serializable]
-    public enum SessionMode
-    {
-	Socket,
-	Pipe
-    }
-
     /// <summary>
     /// Container for session-specific data.
     /// Note that this is sealed for serialization purposes.
@@ -72,9 +57,6 @@ namespace HoudiniEngineUnity
 	// Name of pipe (for pipe session)
 	[SerializeField]
 	private string _pipeName;
-
-	[SerializeField]
-	private int _port;
 #pragma warning restore 0414
 
 	// ID for the HEU_SessionBase class type
@@ -85,27 +67,6 @@ namespace HoudiniEngineUnity
 	[SerializeField]
 	private bool _isDefaultSession;
 
-	[SerializeField]
-	private HEU_SessionSyncData _sessionSync = null;
-
-	public HEU_SessionSyncData GetOrCreateSessionSync()
-	{
-	    if (_sessionSync == null)
-	    {
-		_sessionSync = new HEU_SessionSyncData();
-	    }
-	    return _sessionSync;
-	}
-
-	public HEU_SessionSyncData GetSessionSync()
-	{
-	    return _sessionSync;
-	}
-
-	public void SetSessionSync(HEU_SessionSyncData syncData)
-	{
-	    _sessionSync = syncData;
-	}
 
 	public long SessionID
 	{
@@ -114,7 +75,7 @@ namespace HoudiniEngineUnity
 #if HOUDINIENGINEUNITY_ENABLED
 		return _HAPISession.id;
 #else
-		return INVALID_SESSION_ID;
+				return INVALID_SESSION_ID;
 #endif
 	    }
 
@@ -131,7 +92,7 @@ namespace HoudiniEngineUnity
 #if HOUDINIENGINEUNITY_ENABLED
 		return _serverProcessID;
 #else
-		return -1;
+				return -1;
 #endif
 	    }
 
@@ -148,7 +109,7 @@ namespace HoudiniEngineUnity
 #if HOUDINIENGINEUNITY_ENABLED
 		return _HAPISession.type;
 #else
-		return 0;
+				return 0;
 #endif
 	    }
 
@@ -165,7 +126,7 @@ namespace HoudiniEngineUnity
 #if HOUDINIENGINEUNITY_ENABLED
 		return _initialized;
 #else
-		return false;
+				return false;
 #endif
 	    }
 
@@ -182,7 +143,7 @@ namespace HoudiniEngineUnity
 #if HOUDINIENGINEUNITY_ENABLED
 		return SessionID > 0;
 #else
-		return false;
+				return false;
 #endif
 	    }
 	}
@@ -194,26 +155,13 @@ namespace HoudiniEngineUnity
 #if HOUDINIENGINEUNITY_ENABLED
 		return _pipeName;
 #else
-		return "";
+				return "";
 #endif
 	    }
 
 	    set
 	    {
 		_pipeName = value;
-	    }
-	}
-
-	public int Port
-	{
-	    get
-	    {
-		return _port;
-	    }
-
-	    set
-	    {
-		_port = value;
 	    }
 	}
 
@@ -249,24 +197,6 @@ namespace HoudiniEngineUnity
 		_isDefaultSession = value;
 	    }
 	}
-
-	public bool IsSessionSync
-	{
-	    get
-	    {
-		return _sessionSync != null;
-	    }
-	}
-
-	[SerializeField]
-	private SessionConnectionState _connectionState;
-
-	public SessionConnectionState ThisConnectionMode { get { return _connectionState; } set { _connectionState = value; } }
-
-	[SerializeField]
-	private SessionMode _sessionMode;
-
-	public SessionMode ThisSessionMode { get { return _sessionMode; } set { _sessionMode = value; } }
     }
 
 }   // HoudiniEngineUnity

@@ -70,7 +70,6 @@ namespace HoudiniEngineUnity
 	static HEU_Platform()
 	{
 	    // This gets set whenever Unity initializes or there is a code refresh.
-            SetHapiClientName();
 	    SetHoudiniEnginePath();
 	}
 
@@ -80,7 +79,7 @@ namespace HoudiniEngineUnity
 	/// <returns>Path to the Houdini Engine plugin installation.</returns>
 	public static string GetHoudiniEnginePath()
 	{
-#if UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
 	    // Limiting only to Windows since unable to dynamically load HAPI libs
 	    // with relative custom paths for now.
 
@@ -102,7 +101,7 @@ namespace HoudiniEngineUnity
 	{
 	    string HAPIPath = null;
 
-#if UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
 
 	    // Look up in environment variable
 	    HAPIPath = System.Environment.GetEnvironmentVariable(HEU_Defines.HAPI_PATH, System.EnvironmentVariableTarget.Machine);
@@ -137,10 +136,10 @@ namespace HoudiniEngineUnity
 		//Debug.Log("HAPI Path: " + HAPIPath);
 	    }
 
-#elif (UNITY_EDITOR_OSX || UNITY_EDITOR_LINUX || (!UNITY_EDITOR && (UNITY_STANDALONE_OSX || UNITY_STANDALONE_LINUX)))
-	    HAPIPath = HEU_HoudiniVersion.HOUDINI_INSTALL_PATH;
+#elif (UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_STANDALONE_LINUX)
+			HAPIPath = HEU_HoudiniVersion.HOUDINI_INSTALL_PATH;
 #else
-	    _lastErrorMsg = "Unable to find Houdini installation because this is an unsupported platform!";
+			_lastErrorMsg = "Unable to find Houdini installation because this is an unsupported platform!";
 #endif
 
 	    return HAPIPath;
@@ -187,14 +186,6 @@ namespace HoudiniEngineUnity
 	    return HAPIPath;
 	}
 
-        /// <summary>
-        /// Sets the HAPI_CLIENT_NAME environment variable
-        public static void SetHapiClientName()
-        {
-            System.Environment.SetEnvironmentVariable(
-                HEU_Defines.HAPI_ENV_CLIENT_NAME, "unity");
-        }
-
 	/// <summary>
 	/// Find the Houdini Engine libraries, and add the Houdini Engine path to the system path.
 	/// </summary>
@@ -212,7 +203,7 @@ namespace HoudiniEngineUnity
 
 	    _pathSet = false;
 
-#if UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
 	    bool bFoundLib = false;
 
 	    // Add path to system path if not already in there
@@ -264,32 +255,32 @@ namespace HoudiniEngineUnity
 
 	    _pathSet = true;
 
-#elif (UNITY_EDITOR_OSX || UNITY_EDITOR_LINUX || (!UNITY_EDITOR && (UNITY_STANDALONE_OSX || UNITY_STANDALONE_LINUX)))
-	    if(!System.IO.Directory.Exists(appPath))
-	    {
-		    _lastErrorMsg = string.Format("Could not find Houdini Engine library at {0}", appPath);
-		    Debug.LogError(_lastErrorMsg);
-		    return;
-	    }
+#elif (UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_STANDALONE_LINUX)
+			if(!System.IO.Directory.Exists(appPath))
+			{
+				_lastErrorMsg = string.Format("Could not find Houdini Engine library at {0}", appPath);
+				Debug.LogError(_lastErrorMsg);
+				return;
+			}
 
-	    _libPath = appPath + HEU_HoudiniVersion.HAPI_LIBRARY_PATH;
+			_libPath = appPath + HEU_HoudiniVersion.HAPI_LIBRARY_PATH;
 
-	    // Set HARS bin path to environment path so that we can start Thrift server
-	    string systemPath = System.Environment.GetEnvironmentVariable("PATH", System.EnvironmentVariableTarget.Process);
-	    if (string.IsNullOrEmpty(systemPath) || !systemPath.Contains(binPath))
-	    {
-		    if (string.IsNullOrEmpty(systemPath))
-		    {
-			    systemPath = binPath;
-		    }
-		    else
-		    {
-			    systemPath = binPath + ":" + systemPath;
-		    }
-	    }
-	    System.Environment.SetEnvironmentVariable("PATH", systemPath, System.EnvironmentVariableTarget.Process);
+			// Set HARS bin path to environment path so that we can start Thrift server
+			string systemPath = System.Environment.GetEnvironmentVariable("PATH", System.EnvironmentVariableTarget.Process);
+			if (string.IsNullOrEmpty(systemPath) || !systemPath.Contains(binPath))
+			{
+				if (string.IsNullOrEmpty(systemPath))
+				{
+					systemPath = binPath;
+				}
+				else
+				{
+					systemPath = binPath + ":" + systemPath;
+				}
+			}
+			System.Environment.SetEnvironmentVariable("PATH", systemPath, System.EnvironmentVariableTarget.Process);
 			
-	    _pathSet = true;
+			_pathSet = true;
 #endif
 
 #endif
@@ -547,27 +538,6 @@ namespace HoudiniEngineUnity
 	    }
 
 	    return HEU_Platform.DoesFileExist(envPath) ? envPath : "";
-	}
-
-	public static bool LoadFileIntoMemory(string path, out byte[] buffer)
-	{
-	    buffer = null;
-	    try
-	    {
-		if (File.Exists(path))
-		{
-		    buffer = File.ReadAllBytes(path);
-		}
-		else
-		{
-		    Debug.LogErrorFormat("Failed to open (0}. File doesn't exist!", path);
-		}
-	    }
-	    catch(Exception ex)
-	    {
-		Debug.LogErrorFormat("Failed to open (0}. Exception: {1}", path, ex.ToString());
-	    }
-	    return buffer != null;
 	}
     }
 

@@ -47,31 +47,18 @@ namespace HoudiniEngineUnity
 	private GUIContent _statusSyncContent = new GUIContent("Syncing");
 
 	private GUIContent _unloadContent = new GUIContent("Unload", "Delete the file node and clean up all generated content.");
-	private GUIContent _eventMessageContent = new GUIContent("Log", "Status messages logged here.");
 
-	private HEU_OutputLogUIComponent _outputLogUIComponent = null;
+
 
 	private void OnEnable()
 	{
 	    AcquireTarget();
-	    
 	}
 
 	private void AcquireTarget()
 	{
 	    _geoSync = target as HEU_GeoSync;
 	}
-
-	private void SetupUI()
-	{
-	    if (_outputLogUIComponent == null)
-	    {
-		_outputLogUIComponent = new HEU_OutputLogUIComponent(_eventMessageContent, ClearEventLog);
-	    }
-
-	    _outputLogUIComponent.SetupUI();
-	}
-
 
 	public override void OnInspectorGUI()
 	{
@@ -80,11 +67,9 @@ namespace HoudiniEngineUnity
 		AcquireTarget();
 	    }
 
-	    SetupUI();
-
 	    using (new EditorGUILayout.VerticalScope())
 	    {
-		bool bSyncing = _geoSync._syncing;
+		bool bSyncing = _geoSync.IsSyncing;
 
 		EditorGUILayout.LabelField(_fileLabelContent);
 
@@ -123,8 +108,7 @@ namespace HoudiniEngineUnity
 
 			if (GUILayout.Button(_syncContent))
 			{
-			    _geoSync.ClearLog();
-			    _geoSync.Resync();
+			    _geoSync.StartSync();
 			}
 
 			//GUILayout.FlexibleSpace();
@@ -139,18 +123,10 @@ namespace HoudiniEngineUnity
 		    }
 		}
 
-		if (_outputLogUIComponent != null &&_geoSync._log != null)
+		if (!string.IsNullOrEmpty(_geoSync._logStr))
 		{
-		    _outputLogUIComponent.OnGUI(_geoSync._log.ToString());
+		    EditorGUILayout.LabelField("Log: " + _geoSync._logStr);
 		}
-	    }
-	}
-
-	private void ClearEventLog()
-	{
-	    if (_geoSync)
-	    {
-		_geoSync.ClearLog();
 	    }
 	}
 

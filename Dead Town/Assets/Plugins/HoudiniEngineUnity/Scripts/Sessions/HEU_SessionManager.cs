@@ -198,6 +198,7 @@ namespace HoudiniEngineUnity
 			    sessionBase.SetSessionData(sessionData);
 			    _sessionMap.Add(sessionData.SessionID, sessionBase);
 
+
 			    if (sessionData.IsDefaultSession)
 			    {
 				_defaultSession = sessionBase;
@@ -259,12 +260,10 @@ namespace HoudiniEngineUnity
 	    {
 		return _defaultSession;
 	    }
-	    else if (_defaultSession == null || _defaultSession.ConnectionState == SessionConnectionState.NOT_CONNECTED)
+	    else if (_defaultSession == null || _defaultSession.ConnectedState == HEU_SessionBase.SessionConnectionState.NOT_CONNECTED)
 	    {
 		// Try creating it if we haven't tried yet
-		bNotifyUserError &= !CreateThriftPipeSession(HEU_PluginSettings.Session_PipeName, 
-		    HEU_PluginSettings.Session_AutoClose, HEU_PluginSettings.Session_Timeout, 
-		    bNotifyUserError);
+		bNotifyUserError &= !CreateThriftPipeSession(HEU_PluginSettings.Session_PipeName, HEU_PluginSettings.Session_AutoClose, HEU_PluginSettings.Session_Timeout, bNotifyUserError);
 	    }
 
 	    if (bNotifyUserError && !_defaultSession.UserNotifiedSessionInvalid)
@@ -298,12 +297,12 @@ namespace HoudiniEngineUnity
 	/// <param name="autoClose"></param>
 	/// <param name="timeout"></param>
 	/// <returns>True if successfully created session.</returns>
-	public static bool CreateThriftSocketSession(string hostName, int serverPort, bool autoClose, float timeout, bool logError)
+	public static bool CreateThriftSocketSession(string hostName, int serverPort, bool autoClose, float timeout, bool bLogError)
 	{
 	    CheckAndCloseExistingSession();
 
 	    _defaultSession = CreateSessionObject();
-	    return _defaultSession.CreateThriftSocketSession(true, hostName, serverPort, autoClose, timeout, logError);
+	    return _defaultSession.CreateThriftSocketSession(true, hostName, serverPort, autoClose, timeout, bLogError);
 	}
 
 	/// <summary>
@@ -313,12 +312,12 @@ namespace HoudiniEngineUnity
 	/// <param name="autoClose"></param>
 	/// <param name="timeout"></param>
 	/// <returns>True if successfully created session.</returns>
-	public static bool CreateThriftPipeSession(string pipeName, bool autoClose, float timeout, bool logError)
+	public static bool CreateThriftPipeSession(string pipeName, bool autoClose, float timeout, bool bLogError)
 	{
 	    CheckAndCloseExistingSession();
 
 	    _defaultSession = CreateSessionObject();
-	    return _defaultSession.CreateThriftPipeSession(true, pipeName, autoClose, timeout, logError);
+	    return _defaultSession.CreateThriftPipeSession(true, pipeName, autoClose, timeout, bLogError);
 	}
 
 	/// <summary>
@@ -332,6 +331,7 @@ namespace HoudiniEngineUnity
 	    _defaultSession = CreateSessionObject();
 	    return _defaultSession.CreateCustomSession(true);
 	}
+
 	public static bool ConnectThriftSocketSession(string hostName, int serverPort, bool autoClose, float timeout)
 	{
 	    CheckAndCloseExistingSession();
@@ -346,47 +346,6 @@ namespace HoudiniEngineUnity
 
 	    _defaultSession = CreateSessionObject();
 	    return _defaultSession.ConnectThriftPipeSession(true, pipeName, autoClose, timeout);
-	}
-
-	public static void RecreateDefaultSessionData()
-	{
-	    CheckAndCloseExistingSession();
-	    _defaultSession = CreateSessionObject();
-	}
-
-	public static bool ConnectSessionSyncUsingThriftSocket(
-	    string hostName, int serverPort, bool autoClose, 
-	    float timeout, bool logError)
-	{
-	    if (_defaultSession == null)
-	    {
-		RecreateDefaultSessionData();
-	    }
-	    return _defaultSession.ConnectThriftSocketSession(
-		true, hostName, serverPort, autoClose, timeout,
-		 logError, false);
-	}
-
-	public static bool ConnectSessionSyncUsingThriftPipe(
-	    string pipeName, bool autoClose,
-	    float timeout, bool logError)
-	{
-	    if (_defaultSession == null)
-	    {
-		RecreateDefaultSessionData();
-	    }
-	    return _defaultSession.ConnectThriftPipeSession(
-		true, pipeName, autoClose, timeout,
-		logError, false);
-	}
-
-	public static bool InitializeDefaultSession()
-	{
-	    if (_defaultSession != null)
-	    {
-		return _defaultSession.InitializeSession(_defaultSession.GetSessionData());
-	    }
-	    return false;
 	}
 
 	/// <summary>
@@ -560,52 +519,6 @@ namespace HoudiniEngineUnity
 	    return false;
 	}
 
-	public static bool ClearConnectionError()
-	{
-#if HOUDINIENGINEUNITY_ENABLED
-	    HAPI_Result result = HEU_HAPIImports.HAPI_ClearConnectionError();
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-#else
-	    return true;
-#endif
-	}
-
-	public static string GetConnectionError(bool clear)
-	{
-#if HOUDINIENGINEUNITY_ENABLED
-	    int bufferLength = 0;
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetConnectionErrorLength(out bufferLength);
-	    if (result == HAPI_Result.HAPI_RESULT_SUCCESS)
-	    {
-		if (bufferLength > 0)
-		{
-		    StringBuilder sb = new StringBuilder(bufferLength);
-		    result = HEU_HAPIImports.HAPI_GetConnectionError(sb, bufferLength, clear);
-		    if (result == HAPI_Result.HAPI_RESULT_SUCCESS)
-		    {
-			return sb.ToString();
-		    }
-		}
-		else
-		{
-		    // Empty string for no error
-		    return "";
-		}
-	    }
-#endif
-	    return "Failed to get connection error";
-	}
-
-	public static bool IsHARSProcessRunning(int processID)
-	{
-	    if (processID > 0)
-	    {
-		System.Diagnostics.Process serverProcess = System.Diagnostics.Process.GetProcessById(processID);
-		return serverProcess != null && !serverProcess.HasExited && serverProcess.ProcessName.Equals("HARS");
-	    }
-	    return false;
-	}
-
 	// SESSION DEBUG ----------------------------------------------------------------------------------------------
 
 	/// <summary>
@@ -695,85 +608,6 @@ namespace HoudiniEngineUnity
 #endif
 	}
 
-	public static string GetHoudiniPathOnMacOS(string houdiniPath)
-	{
-#if UNITY_EDITOR_OSX
-	    // On macOS, need to find the actual executable, which is within one of .app folders
-	    // that Houdini ships with, depending on the installation type.
-	    // HoudiniPath should by default be pointing to the HFS (Houdini install) folder.
-	    // Or user should have selected one of the .app folders within.
-
-	    // If not set to .app, then set it based on what app is available
-	    if (!houdiniPath.EndsWith(".app", System.StringComparison.InvariantCulture))
-	    {
-		string[] appNames = { "FX", "Core", "Indie", "Apprentice", "Indie", "Indie Steam Edition" };
-		string tryPath;
-		foreach (string name in appNames)
-		{
-		    tryPath = HEU_Platform.BuildPath(houdiniPath, string.Format("Houdini {0} {1}.app",
-			    name,
-			    HEU_HoudiniVersion.HOUDINI_VERSION_STRING));
-		    if (HEU_Platform.DoesPathExist(tryPath))
-		    {
-			houdiniPath = tryPath;
-			break;
-		    }
-		}
-	    }
-
-	    if (houdiniPath.EndsWith(".app", System.StringComparison.InvariantCulture))
-	    {
-		// Get the executable name inside the .app, but the executable
-		// name is based on the license type, so need to query the 
-		// license type and map it to executable name:
-		// 	Houdini Apprenctice 18.0.100
-		// 	Houdini Core 18.0.100
-		// 	Houdini FX 18.0.100
-		// 	Houdini Indie 18.0.100
-		// 	Houdini Indie Steam Edition 18.0.100
-		//houdiniPath = "/Applications/Houdini/Houdini18.0.100/Houdini Indie 18.0.100.app";
-		string hexecutable = "";
-		string pattern = @"(.*)/Houdini (.*) (.*).app$";
-		Regex reg = new Regex(pattern);
-		Match match = reg.Match(houdiniPath);
-		if (match.Success && match.Groups.Count > 2)
-		{
-		    switch (match.Groups[2].Value)
-		    {
-			case "Apprentice": hexecutable = "happrentice"; break;
-			case "Core": hexecutable = "houdinicore"; break;
-			case "FX": hexecutable = "houdini"; break;
-			case "Indie": hexecutable = "hindie"; break;
-			case "Indie Steam Edition": hexecutable = "hindie.steam"; break;
-			default: break;
-		    }
-		}
-
-		houdiniPath += "/Contents/MacOS/" + hexecutable;
-	    }
-#endif
-	    return houdiniPath;
-	}
-
-	public static bool OpenHoudini(string args)
-	{
-	    string houdiniPath = HEU_PluginSettings.HoudiniDebugLaunchPath;
-
-#if UNITY_EDITOR_OSX
-	    houdiniPath = GetHoudiniPathOnMacOS(houdiniPath);
-#endif
-
-	    var HoudiniProcess = new System.Diagnostics.Process();
-	    HoudiniProcess.StartInfo.FileName = houdiniPath;
-	    HoudiniProcess.StartInfo.Arguments = args;
-	    if (!HoudiniProcess.Start())
-	    {
-		return false;
-	    }
-
-	    return true;
-	}
-
 	/// <summary>
 	/// Open given session in a new Houdini instance.
 	/// </summary>
@@ -804,7 +638,59 @@ namespace HoudiniEngineUnity
 	    string HoudiniPath = HEU_PluginSettings.HoudiniDebugLaunchPath;
 
 #if UNITY_EDITOR_OSX
-	    HoudiniPath = GetHoudiniPathOnMacOS(HoudiniPath);
+			// On macOS, need to find the actual executable, which is within one of .app folders
+			// that Houdini ships with, depending on the installation type.
+			// HoudiniPath should by default be pointing to the HFS (Houdini install) folder.
+			// Or user should have selected one of the .app folders within.
+			
+			// If not set to .app, then set it based on what app is available
+			if (!HoudiniPath.EndsWith(".app", System.StringComparison.InvariantCulture))
+			{
+				string[] appNames = { "FX", "Core", "Indie", "Apprentice", "Indie", "Indie Steam Edition" };
+				string tryPath;
+				foreach(string name in appNames)
+				{
+					tryPath = HEU_Platform.BuildPath(HoudiniPath, string.Format("Houdini {0} {1}.app", 
+						name,
+						HEU_HoudiniVersion.HOUDINI_VERSION_STRING));
+					if (HEU_Platform.DoesPathExist(tryPath))
+					{
+						HoudiniPath = tryPath;
+						break;
+					}
+				}
+			}
+
+			if (HoudiniPath.EndsWith(".app", System.StringComparison.InvariantCulture))
+			{
+				// Get the executable name inside the .app, but the executable
+				// name is based on the license type, so need to query the 
+				// license type and map it to executable name:
+				// 	Houdini Apprenctice 18.0.100
+				// 	Houdini Core 18.0.100
+				// 	Houdini FX 18.0.100
+				// 	Houdini Indie 18.0.100
+				// 	Houdini Indie Steam Edition 18.0.100
+				//HoudiniPath = "/Applications/Houdini/Houdini18.0.100/Houdini Indie 18.0.100.app";
+				string hexecutable = "";
+				string pattern = @"(.*)/Houdini (.*) (.*).app$";
+				Regex reg = new Regex(pattern); 
+				Match match = reg.Match(HoudiniPath);
+				if (match.Success && match.Groups.Count > 2)
+				{
+					switch(match.Groups[2].Value)
+					{
+						case "Apprentice": hexecutable = "happrentice"; break;
+						case "Core": hexecutable = "houdinicore"; break;
+						case "FX": hexecutable = "houdini"; break;
+						case "Indie": hexecutable = "hindie"; break;
+						case "Indie Steam Edition": hexecutable = "hindie.steam"; break;
+						default: break;
+					}
+				}
+
+				HoudiniPath += "/Contents/MacOS/" + hexecutable;
+			}
 #endif
 
 	    var HoudiniProcess = new System.Diagnostics.Process();
@@ -907,8 +793,9 @@ namespace HoudiniEngineUnity
 	/// <param name="nodeID">The node ID</param>
 	/// <param name="groupType">The group type to query</param>
 	/// <returns>Populated array of string names, or null if failed</returns>
-	public static string[] GetGroupNames(HEU_SessionBase session, HAPI_NodeId nodeID, HAPI_PartId partID, HAPI_GroupType groupType, bool isInstanced)
+	public static string[] GetGroupNames(HAPI_NodeId nodeID, HAPI_PartId partID, HAPI_GroupType groupType, bool isInstanced)
 	{
+	    HEU_SessionBase session = GetOrCreateDefaultSession();
 	    if (session != null)
 	    {
 		HAPI_GeoInfo geoInfo = new HAPI_GeoInfo();
@@ -951,7 +838,7 @@ namespace HoudiniEngineUnity
 			string[] nameStrings = new string[groupCount];
 			for (int i = 0; i < groupCount; ++i)
 			{
-			    nameStrings[i] = GetString(groupNames[i], session);
+			    nameStrings[i] = GetString(groupNames[i]);
 			}
 			return nameStrings;
 		    }

@@ -24,8 +24,8 @@
 * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
 
 namespace HoudiniEngineUnity
@@ -35,90 +35,40 @@ namespace HoudiniEngineUnity
     using HAPI_NodeId = System.Int32;
     using HAPI_PartId = System.Int32;
     using HAPI_ParmId = System.Int32;
+    using HAPI_StringHandle = System.Int32;
 
     /// <summary>
-    /// Threaded class for loading geometry from node and bgeo files into Unity.
+    /// Threaded class for loading bgeo files into Unity.
     /// The threaded work involves loading the bgeo into a Houdini Engine session, then retrieving the geometry
     /// into local buffers. 
-    /// Finally, back in the main thread, the buffers are passed off to HEU_BaseSync to continue loading in Unity.
+    /// Finally, back in the main thread, the buffers are passed off to HEU_GeoSync to continue loading in Unity.
     /// </summary>
     public class HEU_ThreadedTaskLoadGeo : HEU_ThreadedTask
     {
-	#region FUNCTIONS
-
-	#region SETUP
+	//	LOGIC ------------------------------------------------------------------------------------------------------------
 
 	/// <summary>
-	/// Base setup for loading geometry.
+	/// Initial setup for loading the bgeo file.
 	/// </summary>
+	/// <param name="filePath">Path to the bgeo file</param>
+	/// <param name="geoSync">HEU_GeoSync object that will do the actual Unity geometry creation</param>
 	/// <param name="session">Houdini Engine session</param>
-	/// <param name="ownerSync">HEU_BaseSync object owns this and does Unity geometry creation</param>
-	/// <param name="loadType">Type of load (file or node)</param>
-	/// <param name="cookNodeID">The ID of the node to load geometry from</param>
-	/// <param name="name">The name of the node to load geometry from</param>
-	/// <param name="filePath">For file load, the path to the fle</param>
-	public void SetupLoad(HEU_SessionBase session, HEU_BaseSync ownerSync, LoadType loadType, HAPI_NodeId cookNodeID, string name, string filePath)
+	/// <param name="fileNodeID">The file node's ID that was created in Houdini</param>
+	public void Setup(string filePath, HEU_GeoSync geoSync, HEU_SessionBase session, HAPI_NodeId fileNodeID)
 	{
-	    _loadType = loadType;
-
 	    _filePath = filePath;
-	    _ownerSync = ownerSync;
+	    _geoSync = geoSync;
 	    _session = session;
-	    _name = name;
+	    _name = filePath;
 
-	    _generateOptions = _ownerSync._generateOptions;
+	    _generateOptions = geoSync.GenerateOptions;
 
 	    // Work data
 	    _loadData = new HEU_LoadData();
-	    _loadData._cookNodeID = cookNodeID;
+	    _loadData._fileNodeID = fileNodeID;
 	    _loadData._loadStatus = HEU_LoadData.LoadStatus.NONE;
-	    _loadData._logStr = new StringBuilder();
+	    _loadData._logStr = "";
 	}
-
-	/// <summary>
-	/// Initial setup for cooking and loading a node's geometry.
-	/// </summary>
-	/// <param name="session">Houdini Engine session</param>
-	/// <param name="ownerSync">HEU_BaseSync object owns this and does Unity geometry creation</param>
-	/// <param name="cookNodeID">The load node's ID that was created in Houdini</param>
-	/// <param name="name">Name of the node</param>
-	public void SetupLoadNode(HEU_SessionBase session, HEU_BaseSync ownerSync, HAPI_NodeId cookNodeID, string name)
-	{
-	    SetupLoad(session, ownerSync, LoadType.NODE, cookNodeID, name, null);
-	}
-
-	/// <summary>
-	/// Initial setup for loading a bgeo file.
-	/// </summary>
-	/// <param name="filePath">Path to the bgeo file</param>
-	/// <param name="ownerSync">HEU_BaseSync object owns this and does Unity geometry creation</param>
-	/// <param name="session">Houdini Engine session</param>
-	/// <param name="cookNodeID">The file node's ID that was created in Houdini</param>
-	public void SetupLoadFile(HEU_SessionBase session, HEU_BaseSync ownerSync, HAPI_NodeId cookNodeID, string filePath)
-	{
-	    SetupLoad(session, ownerSync, LoadType.FILE, cookNodeID, filePath, filePath);
-	}
-
-	/// <summary>
-	/// Initial setup for loading an asset (HDA) file.
-	/// </summary>
-	/// <param name="session">Houdini Engine session</param>
-	/// <param name="ownerSync">HEU_BaseSync object owns this and does Unity geometry creation</param>
-	/// <param name="assetPath">Path to the asset (HDA) file</param>
-	/// <param name="name">Name of the node</param>
-	public void SetupLoadAsset(HEU_SessionBase session, HEU_BaseSync ownerSync, string assetPath, string name)
-	{
-	    SetupLoad(session, ownerSync, LoadType.ASSET, -1, name, assetPath);
-	}
-
-	public void SetLoadCallback(HEU_LoadCallback loadCallback)
-	{
-	    _loadCallback = loadCallback;
-	}
-
-	#endregion
-
-	#region WORK
 
 	/// <summary>
 	/// Do the geometry loading in Houdini in a thread.
@@ -132,92 +82,56 @@ namespace HoudiniEngineUnity
 
 	    if (_session == null || !_session.IsSessionValid())
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, "Invalid session!");
+		SetLog(HEU_LoadData.LoadStatus.ERROR, "Invalid session!");
 		return;
 	    }
 
-	    if (_loadType == LoadType.FILE)
+	    // Check file path
+	    if (!HEU_Platform.DoesPathExist(_filePath))
 	    {
-		if (!DoFileLoad())
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("File not found at {0}", _filePath));
+		return;
+	    }
+
+#if true
+	    // Make sure file type is supported
+	    //if (!_filePath.EndsWith(".bgeo") && !_filePath.EndsWith(".bgeo.sc"))
+	    //{
+	    //	SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Only .bgeo or .bgeo.sc files are supported."));
+	    //	return;
+	    //}
+
+	    // Create file SOP
+	    if (_loadData._fileNodeID == HEU_Defines.HEU_INVALID_NODE_ID)
+	    {
+		if (!CreateFileNode(out _loadData._fileNodeID))
 		{
+		    SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to create file node in Houdini."));
 		    return;
 		}
 	    }
-	    else if (_loadType == LoadType.ASSET)
-	    {
-		if (!DoAssetLoad())
-		{
-		    return;
-		}
-	    }
 
-	    // For LoadType.NODE, assume the node already exists in Houdini session
-	    // We simply recook and generate geometry
+	    Sleep();
 
-	    HAPI_NodeId cookNodeID = GetCookNodeID();
-	    if (cookNodeID == HEU_Defines.HEU_INVALID_NODE_ID)
+	    HAPI_NodeId displayNodeID = GetDisplayNodeID(_loadData._fileNodeID);
+	    if (displayNodeID == HEU_Defines.HEU_INVALID_NODE_ID)
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to get cook node."));
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to get display node of file geo node."));
 		return;
 	    }
 
-	    if (_loadCallback != null)
+	    // Set the file parameter
+	    if (!SetFileParm(displayNodeID, _filePath))
 	    {
-		_loadCallback(_session, _loadData, HEU_LoadCallbackType.PRECOOK);
-	    }
-
-	    // Cooking it will update the node so we can query its details
-	    // This will block until cook has completed or failed
-	    if (!CookNode(_session, cookNodeID))
-	    {
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to set file path parm."));
 		return;
 	    }
 
-	    if (_loadCallback != null)
-	    {
-		_loadCallback(_session, _loadData, HEU_LoadCallbackType.POSTCOOK);
-	    }
-
-	    // Get nodes to cook based on the type of node
-	    HAPI_NodeInfo nodeInfo = new HAPI_NodeInfo();
-	    if (!_session.GetNodeInfo(cookNodeID, ref nodeInfo))
-	    {
-		return;
-	    }
-
-	    HAPI_ObjectInfo[] objectInfos = null;
-	    HAPI_Transform[] objectTransforms = null;
-	    if (!HEU_HAPIUtility.GetObjectInfos(_session, cookNodeID, ref nodeInfo, out objectInfos, out objectTransforms))
-	    {
-		return;
-	    }
-
-	    _loadData._loadedObjects = new List<HEU_LoadObject>();
-	    bool bResult = true;
-
-	    // For each object, get the display and editable geometries contained inside.
-	    for (int i = 0; i < objectInfos.Length; ++i)
-	    {
-		bResult &= LoadObjectBuffers(_session, ref objectInfos[i]);
-	    }
-
-	    if (bResult)
-	    {
-		AppendLog(HEU_LoadData.LoadStatus.SUCCESS, "Completed!");
-	    }
-	    else
-	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, "Failed to load geometry!");
-	    }
-	}
-
-	protected virtual bool CookNode(HEU_SessionBase session, HAPI_NodeId cookNodeID)
-	{
 	    // Cooking it will load the bgeo
-	    if (!session.CookNode(cookNodeID, false))
+	    if (!_session.CookNode(_loadData._fileNodeID, false))
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to cook node."));
-		return false;
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to cook node."));
+		return;
 	    }
 
 	    // Wait until cooking has finished
@@ -225,7 +139,7 @@ namespace HoudiniEngineUnity
 	    HAPI_State statusCode = HAPI_State.HAPI_STATE_STARTING_LOAD;
 	    while (bResult && statusCode > HAPI_State.HAPI_STATE_MAX_READY_STATE)
 	    {
-		bResult = session.GetCookState(out statusCode);
+		bResult = _session.GetStatus(HAPI_StatusType.HAPI_STATUS_COOK_STATE, out statusCode);
 
 		Sleep();
 	    }
@@ -233,63 +147,33 @@ namespace HoudiniEngineUnity
 	    // Check cook results for any errors
 	    if (statusCode == HAPI_State.HAPI_STATE_READY_WITH_COOK_ERRORS || statusCode == HAPI_State.HAPI_STATE_READY_WITH_FATAL_ERRORS)
 	    {
-		string statusString = session.GetStatusString(HAPI_StatusType.HAPI_STATUS_COOK_RESULT, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_ERRORS);
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Cook failed: {0}.", statusString));
-		return false;
+		string statusString = _session.GetStatusString(HAPI_StatusType.HAPI_STATUS_COOK_RESULT, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_ERRORS);
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Cook failed: {0}.", statusString));
+		return;
 	    }
 
-	    return true;
-	}
+#else
 
-	#endregion
+            // Load the file using HAPI_LoadGeoFromFile
+            if (_loadData._fileNodeID == HEU_Defines.HEU_INVALID_NODE_ID)
+            {
+				Debug.Log("Creating file node with path: " + _filePath);
+                if (!_session.CreateNode(-1, "SOP/file", "loadfile", true, out _loadData._fileNodeID))
+                {
+                    SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to create geo SOP in Houdini."));
+                    return;
+                }
 
-	#region LOADING
+                if (!_session.LoadGeoFromFile(_loadData._fileNodeID, _filePath))
+                {
+                    SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to create file node in Houdini."));
+                    return;
+                }
+            }
+			HAPI_NodeId displayNodeID = GetDisplayNodeID(_loadData._fileNodeID);
 
-	protected virtual bool LoadObjectBuffers(HEU_SessionBase session, ref HAPI_ObjectInfo objectInfo)
-	{
-	    // Get display SOP geo info and cook the node
-	    HAPI_GeoInfo displayGeoInfo = new HAPI_GeoInfo();
-	    if (!_session.GetDisplayGeoInfo(objectInfo.nodeId, ref displayGeoInfo))
-	    {
-		return false;
-	    }
+#endif
 
-	    if (!CookNode(session, displayGeoInfo.nodeId))
-	    {
-		return false;
-	    }
-
-	    bool bResult = true;
-	    bool bHasInstancer = false;
-
-	    HEU_LoadObject obj = new HEU_LoadObject();
-	    obj._objectNodeID = objectInfo.nodeId;
-	    obj._displayNodeID = displayGeoInfo.nodeId;
-
-	    if (LoadNodeBuffer(session, obj._displayNodeID, obj))
-	    {
-		_loadData._loadedObjects.Add(obj);
-		
-		if (!bHasInstancer && obj._instancerBuffers != null && obj._instancerBuffers.Count > 0)
-		{
-		    bHasInstancer = true;
-		}
-	    }
-	    else
-	    {
-		bResult = false;
-	    }
-
-	    if (bResult && bHasInstancer)
-	    {
-		BuildBufferIDsMap(_loadData);
-	    }
-
-	    return bResult;
-	}
-
-	protected virtual bool LoadNodeBuffer(HEU_SessionBase session, HAPI_NodeId nodeID, HEU_LoadObject loadObject)
-	{
 	    // Note that object instancing is not supported. Instancers currently supported are
 	    // part and point instancing.
 
@@ -299,162 +183,110 @@ namespace HoudiniEngineUnity
 	    List<HAPI_PartInfo> instancerParts = new List<HAPI_PartInfo>();
 	    List<HAPI_PartInfo> curveParts = new List<HAPI_PartInfo>();
 	    List<HAPI_PartInfo> scatterInstancerParts = new List<HAPI_PartInfo>();
-	    if (!QueryParts(nodeID, ref meshParts, ref volumeParts, ref instancerParts, ref curveParts, ref scatterInstancerParts))
+	    if (!QueryParts(displayNodeID, ref meshParts, ref volumeParts, ref instancerParts, ref curveParts, ref scatterInstancerParts))
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to query parts on node."));
-		return false;
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to query parts on node."));
+		return;
 	    }
 
+	    Sleep();
+
 	    // Create Unity mesh buffers
-	    if (!GenerateMeshBuffers(_session, nodeID, meshParts, _generateOptions._splitPoints, _generateOptions._useLODGroups,
+	    if (!GenerateMeshBuffers(_session, displayNodeID, meshParts, _generateOptions._splitPoints, _generateOptions._useLODGroups,
 				_generateOptions._generateUVs, _generateOptions._generateTangents, _generateOptions._generateNormals,
-				out loadObject._meshBuffers))
+				out _loadData._meshBuffers))
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to generate mesh data from parts."));
-		return false;
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to generate mesh data from parts."));
+		return;
 	    }
 
 	    // Create Unity terrain buffers
-	    if (!GenerateTerrainBuffers(_session, nodeID, volumeParts, scatterInstancerParts, out loadObject._terrainBuffers))
+	    if (!GenerateTerrainBuffers(_session, displayNodeID, volumeParts, scatterInstancerParts, out _loadData._terrainBuffers))
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to generate terrain data from volume parts."));
-		return false;
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to generate terrain data from volume parts."));
+		return;
 	    }
 
 	    // Create instancers (should come after normal geometry has been generated above)
-	    if (!GenerateInstancerBuffers(_session, nodeID, instancerParts, out loadObject._instancerBuffers))
+	    if (!GenerateInstancerBuffers(_session, displayNodeID, instancerParts, out _loadData._instancerBuffers))
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to generate data from instancer parts."));
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to generate data from instancer parts."));
+		return;
+	    }
+
+	    SetLog(HEU_LoadData.LoadStatus.SUCCESS, "Completed!");
+	}
+
+	/// <summary>
+	/// Once geometry buffers have been retrieved, load into Unity
+	/// </summary>
+	protected override void OnComplete()
+	{
+	    //Debug.LogFormat("OnCompete: Loaded {0}", _filePath);
+
+	    if (_geoSync != null)
+	    {
+		_geoSync.OnLoadComplete(_loadData);
+	    }
+	}
+
+	protected override void OnStopped()
+	{
+	    //Debug.LogFormat("OnStopped: Loaded {0}", _filePath);
+
+	    if (_geoSync != null)
+	    {
+		_geoSync.OnStopped(_loadData);
+	    }
+	}
+
+	protected override void CleanUp()
+	{
+	    _loadData = null;
+
+	    base.CleanUp();
+	}
+
+	private void SetLog(HEU_LoadData.LoadStatus status, string logStr)
+	{
+	    _loadData._loadStatus = status;
+	    _loadData._logStr = string.Format("{0} : {1}", _loadData._loadStatus.ToString(), logStr);
+	}
+
+	private bool CreateFileNode(out HAPI_NodeId fileNodeID)
+	{
+	    fileNodeID = HEU_Defines.HEU_INVALID_NODE_ID;
+
+	    if (!_session.CreateNode(-1, "SOP/file", "loadbgeo", true, out fileNodeID))
+	    {
 		return false;
 	    }
 
 	    return true;
 	}
 
-	// Create a dictionary of load buffers to their IDs. This speeds up the instancer look up.
-	protected virtual void BuildBufferIDsMap(HEU_LoadData loadData)
+	private HAPI_NodeId GetDisplayNodeID(HAPI_NodeId objNodeID)
 	{
-	    loadData._idBuffersMap = new Dictionary<HAPI_NodeId, HEU_LoadBufferBase>();
-
-	    int numObjects = loadData._loadedObjects.Count;
-	    for (int i = 0; i < numObjects; ++i)
+	    HAPI_GeoInfo displayGeoInfo = new HAPI_GeoInfo();
+	    if (_session.GetDisplayGeoInfo(objNodeID, ref displayGeoInfo))
 	    {
-		HEU_LoadObject obj = loadData._loadedObjects[i];
-
-		if (obj._meshBuffers != null)
-		{
-		    foreach (HEU_LoadBufferBase buffer in obj._meshBuffers)
-		    {
-			loadData._idBuffersMap[buffer._id] = buffer;
-		    }
-		}
-
-		if (obj._terrainBuffers != null)
-		{
-		    foreach (HEU_LoadBufferBase buffer in obj._terrainBuffers)
-		    {
-			loadData._idBuffersMap[buffer._id] = buffer;
-		    }
-		}
-
-		if (obj._instancerBuffers != null)
-		{
-		    foreach (HEU_LoadBufferBase buffer in obj._instancerBuffers)
-		    {
-			loadData._idBuffersMap[buffer._id] = buffer;
-		    }
-		}
+		return displayGeoInfo.nodeId;
 	    }
+
+	    return HEU_Defines.HEU_INVALID_NODE_ID;
 	}
 
-	public virtual bool DoFileLoad()
+	private bool SetFileParm(HAPI_NodeId fileNodeID, string filePath)
 	{
-	    // Check file path
-	    if (!HEU_Platform.DoesPathExist(_filePath))
+	    HAPI_ParmId parmID = -1;
+	    if (!_session.GetParmIDFromName(fileNodeID, "file", out parmID))
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("File not found at {0}", _filePath));
 		return false;
 	    }
 
-	    // Create file SOP
-	    if (_loadData._cookNodeID == HEU_Defines.HEU_INVALID_NODE_ID)
+	    if (!_session.SetParamStringValue(fileNodeID, filePath, parmID, 0))
 	    {
-		if (!CreateFileNode(out _loadData._cookNodeID))
-		{
-		    AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to create file node in Houdini."));
-		    return false;
-		}
-	    }
-
-	    HAPI_NodeId displayNodeID = GetDisplayNodeID(_loadData._cookNodeID);
-	    if (displayNodeID == HEU_Defines.HEU_INVALID_NODE_ID)
-	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to get display node of file geo node."));
 		return false;
-	    }
-
-	    // Set the file parameter
-	    if (!SetFileParm(displayNodeID, _filePath))
-	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to set file path parm."));
-		return false;
-	    }
-
-	    return true;
-	}
-
-	public virtual bool DoAssetLoad()
-	{
-	    string assetPath = _filePath;
-	    if (!HEU_Platform.DoesFileExist(assetPath))
-	    {
-		assetPath = HEU_AssetDatabase.GetValidAssetPath(assetPath);
-	    }
-
-	    HAPI_NodeId libraryID = -1;
-	    HAPI_NodeId newNodeID = -1;
-
-	    byte[] buffer = null;
-	    bool bResult = HEU_Platform.LoadFileIntoMemory(assetPath, out buffer);
-	    if (bResult)
-	    {
-		if (!_session.LoadAssetLibraryFromMemory(buffer, true, out libraryID))
-		{
-		    Debug.LogErrorFormat("Unable to load asset library.");
-		    return false;
-		}
-		//Debug.Log("Loaded asset");
-
-		int assetCount = 0;
-		bResult = _session.GetAvailableAssetCount(libraryID, out assetCount);
-		if (!bResult)
-		{
-		    return false;
-		}
-
-		int[] assetNameLengths = new int[assetCount];
-		bResult = _session.GetAvailableAssets(libraryID, ref assetNameLengths, assetCount);
-		if (!bResult)
-		{
-		    return false;
-		}
-
-		string[] assetNames = new string[assetCount];
-		for (int i = 0; i < assetCount; ++i)
-		{
-		    assetNames[i] = HEU_SessionManager.GetString(assetNameLengths[i], _session);
-		}
-
-		// Create top level node. Note that CreateNode will cook the node if HAPI was initialized with threaded cook setting on.
-		string topNodeName = assetNames[0];
-		bResult = _session.CreateNode(-1, topNodeName, "", false, out newNodeID);
-		if (!bResult)
-		{
-		    return false;
-		}
-		//Debug.Log("Created asset node");
-
-		_loadData._cookNodeID = newNodeID;
 	    }
 
 	    return true;
@@ -537,131 +369,17 @@ namespace HoudiniEngineUnity
 		    else
 		    {
 			string partName = HEU_SessionManager.GetString(partInfo.nameSH, _session);
-			AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Part {0} with type {1} is not supported for GeoSync.", partName, partInfo.type));
+			SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Part {0} with type {1} is not supported for GeoSync.", partName, partInfo.type));
 		    }
 		}
 	    }
 	    else if (geoInfo.type == HAPI_GeoType.HAPI_GEOTYPE_CURVE)
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Currently {0} geo type is not implemented for threaded geo loading!", geoInfo.type));
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Currently {0} geo type is not implemented for threaded geo loading!", geoInfo.type));
 	    }
 
 	    return true;
 	}
-
-	#endregion
-
-	#region CALLBACKS
-
-	/// <summary>
-	/// Once geometry buffers have been retrieved, load into Unity
-	/// </summary>
-	protected override void OnComplete()
-	{
-	    //Debug.LogFormat("OnCompete: Loaded {0}", _filePath);
-
-	    if (_ownerSync != null)
-	    {
-		_ownerSync.OnLoadComplete(_loadData);
-	    }
-	}
-
-	protected override void OnStopped()
-	{
-	    //Debug.LogFormat("OnStopped: Loaded {0}", _filePath);
-
-	    if (_ownerSync != null)
-	    {
-		_ownerSync.OnStopped(_loadData);
-	    }
-	}
-
-	protected override void CleanUp()
-	{
-	    _loadData = null;
-
-	    base.CleanUp();
-	}
-
-	#endregion
-
-	#region MISC
-
-	private string CreateLogString(HEU_LoadData.LoadStatus status, string logStr)
-	{
-	    return string.Format("{0} : {1}", _loadData._loadStatus.ToString(), logStr);
-	}
-
-	private void AppendLog(HEU_LoadData.LoadStatus status, string logStr)
-	{
-	    lock (_loadData._logStr)
-	    {
-		_loadData._loadStatus = status;
-		_loadData._logStr.AppendLine(CreateLogString(status, logStr));
-	    }
-	}
-
-	private void SetLog(HEU_LoadData.LoadStatus status, string logStr)
-	{
-	    lock (_loadData._logStr)
-	    {
-		_loadData._loadStatus = status;
-		_loadData._logStr = new System.Text.StringBuilder(CreateLogString(status, logStr));
-	    }
-	}
-
-	private bool CreateFileNode(out HAPI_NodeId fileNodeID)
-	{
-	    fileNodeID = HEU_Defines.HEU_INVALID_NODE_ID;
-
-	    if (!_session.CreateNode(-1, "SOP/file", "loadbgeo", true, out fileNodeID))
-	    {
-		return false;
-	    }
-
-	    return true;
-	}
-
-	public virtual HAPI_NodeId GetCookNodeID()
-	{
-	    return _loadData._cookNodeID;
-	}
-
-	private HAPI_NodeId GetDisplayNodeID(HAPI_NodeId objNodeID)
-	{
-	    HAPI_GeoInfo displayGeoInfo = new HAPI_GeoInfo();
-	    if (_session.GetDisplayGeoInfo(objNodeID, ref displayGeoInfo))
-	    {
-		return displayGeoInfo.nodeId;
-	    }
-
-	    return HEU_Defines.HEU_INVALID_NODE_ID;
-	}
-
-	private bool SetFileParm(HAPI_NodeId fileNodeID, string filePath)
-	{
-	    HAPI_ParmId parmID = -1;
-	    if (!_session.GetParmIDFromName(fileNodeID, "file", out parmID))
-	    {
-		return false;
-	    }
-
-	    if (!_session.SetParamStringValue(fileNodeID, filePath, parmID, 0))
-	    {
-		return false;
-	    }
-
-	    return true;
-	}
-
-	private void Sleep()
-	{
-	    System.Threading.Thread.Sleep(0);
-	}
-
-	#endregion
-
-	#region GENERATE
 
 	public bool GenerateTerrainBuffers(HEU_SessionBase session, HAPI_NodeId nodeID, List<HAPI_PartInfo> volumeParts,
 		List<HAPI_PartInfo> scatterInstancerParts, out List<HEU_LoadBufferVolume> volumeBuffers)
@@ -682,13 +400,13 @@ namespace HoudiniEngineUnity
 		bool bResult = session.GetVolumeInfo(nodeID, volumeParts[i].id, ref volumeInfo);
 		if (!bResult || volumeInfo.tupleSize != 1 || volumeInfo.zLength != 1 || volumeInfo.storage != HAPI_StorageType.HAPI_STORAGETYPE_FLOAT)
 		{
-		    AppendLog(HEU_LoadData.LoadStatus.ERROR, "This heightfield is not supported. Please check documentation.");
+		    SetLog(HEU_LoadData.LoadStatus.ERROR, "This heightfield is not supported. Please check documentation.");
 		    return false;
 		}
 
 		if (volumeInfo.xLength != volumeInfo.yLength)
 		{
-		    AppendLog(HEU_LoadData.LoadStatus.ERROR, "Non-square sized terrain not supported.");
+		    SetLog(HEU_LoadData.LoadStatus.ERROR, "Non-square sized terrain not supported.");
 		    return false;
 		}
 
@@ -863,6 +581,8 @@ namespace HoudiniEngineUnity
 			volumeBuffer._splatLayers.Add(layer);
 		    }
 		}
+
+		Sleep();
 	    }
 
 	    // Each volume buffer is a self contained terrain tile
@@ -879,6 +599,8 @@ namespace HoudiniEngineUnity
 		{
 		    // Convert heightmap values from Houdini to Unity
 		    volumeBuffer._heightMap = HEU_TerrainUtility.ConvertHeightMapHoudiniToUnity(heightMapWidth, heightMapHeight, layers[0]._normalizedHeights);
+
+		    Sleep();
 
 		    // Convert splatmap values from Houdini to Unity.
 		    // Start at 2nd index since height is strictly for height values (not splatmap).
@@ -1004,7 +726,11 @@ namespace HoudiniEngineUnity
 		}
 	    }
 	}
-	
+
+	private void Sleep()
+	{
+	    System.Threading.Thread.Sleep(0);
+	}
 
 	public bool GenerateMeshBuffers(HEU_SessionBase session, HAPI_NodeId nodeID, List<HAPI_PartInfo> meshParts,
 		bool bSplitPoints, bool bUseLODGroups, bool bGenerateUVs, bool bGenerateTangents, bool bGenerateNormals,
@@ -1037,7 +763,7 @@ namespace HoudiniEngineUnity
 		    if (geoCache == null)
 		    {
 			// Failed to get necessary info for generating geometry.
-			AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Failed to generate geometry cache for part: {0}", partName));
+			SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Failed to generate geometry cache for part: {0}", partName));
 			continue;
 		    }
 
@@ -1076,7 +802,7 @@ namespace HoudiniEngineUnity
 		    }
 		    else
 		    {
-			AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Failed to generated geometry for part: {0}", partName));
+			SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Failed to generated geometry for part: {0}", partName));
 		    }
 		}
 	    }
@@ -1115,7 +841,7 @@ namespace HoudiniEngineUnity
 		}
 		else
 		{
-		    AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Invalid instanced part count: {0} for part {1}", partInfo.instancedPartCount, partName));
+		    SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Invalid instanced part count: {0} for part {1}", partInfo.instancedPartCount, partName));
 		    continue;
 		}
 
@@ -1137,7 +863,7 @@ namespace HoudiniEngineUnity
 	    HAPI_Transform[] instanceTransforms = new HAPI_Transform[partInfo.instanceCount];
 	    if (!HEU_GeneralUtility.GetArray3Arg(geoID, partID, HAPI_RSTOrder.HAPI_SRT, session.GetInstancerPartTransforms, instanceTransforms, 0, partInfo.instanceCount))
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to get instance transforms for part {0}", partName));
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to get instance transforms for part {0}", partName));
 		return null;
 	    }
 
@@ -1145,7 +871,7 @@ namespace HoudiniEngineUnity
 	    HAPI_NodeId[] instanceNodeIDs = new HAPI_NodeId[partInfo.instancedPartCount];
 	    if (!HEU_GeneralUtility.GetArray2Arg(geoID, partID, session.GetInstancedPartIds, instanceNodeIDs, 0, partInfo.instancedPartCount))
 	    {
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to get instance node IDs for part {0}", partName));
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unable to get instance node IDs for part {0}", partName));
 		return null;
 	    }
 
@@ -1217,14 +943,14 @@ namespace HoudiniEngineUnity
 		else
 		{
 		    // Other attribute owned types are unsupported
-		    AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unsupported attribute owner {0} for attribute {1}",
+		    SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Unsupported attribute owner {0} for attribute {1}",
 			    unityInstanceAttrInfo.owner, unityInstanceAttrName));
 		    return null;
 		}
 
 		if (assetPaths == null)
 		{
-		    AppendLog(HEU_LoadData.LoadStatus.ERROR, "Unable to get instanced asset path from attribute!");
+		    SetLog(HEU_LoadData.LoadStatus.ERROR, "Unable to get instanced asset path from attribute!");
 		    return null;
 		}
 
@@ -1248,12 +974,12 @@ namespace HoudiniEngineUnity
 	    else if (instanceAttrInfo.exists)
 	    {
 		// Object instancing via internal object path is not supported
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Object instancing is not supported (part {0})!", partName));
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Object instancing is not supported (part {0})!", partName));
 	    }
 	    else
 	    {
 		// Standard object instancing via single Houdini object is not supported
-		AppendLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Object instancing is not supported (part {0})!", partName));
+		SetLog(HEU_LoadData.LoadStatus.ERROR, string.Format("Object instancing is not supported (part {0})!", partName));
 	    }
 
 	    return null;
@@ -1272,33 +998,20 @@ namespace HoudiniEngineUnity
 	    return null;
 	}
 
-	#endregion
-
-	#endregion
-
-	#region DATA
+	//	DATA ------------------------------------------------------------------------------------------------------
 
 	// Setup
-	private HEU_BaseSync _ownerSync;
+	private string _filePath;
+	private HEU_GeoSync _geoSync;
 	private HEU_SessionBase _session;
 
 	private HEU_GenerateOptions _generateOptions;
-
-	// Load
-	public enum LoadType
-	{
-	    FILE,
-	    NODE,
-	    ASSET
-	}
-	private LoadType _loadType;
-	private string _filePath;
 
 	private HEU_LoadData _loadData;
 
 	public class HEU_LoadData
 	{
-	    public HAPI_NodeId _cookNodeID;
+	    public HAPI_NodeId _fileNodeID;
 
 	    public enum LoadStatus
 	    {
@@ -1309,19 +1022,11 @@ namespace HoudiniEngineUnity
 	    }
 	    public LoadStatus _loadStatus;
 
-	    public StringBuilder _logStr;
+	    public string _logStr;
+
+	    public HEU_GeoGroup _geoGroup;
 
 	    public HEU_SessionBase _session;
-
-	    public List<HEU_LoadObject> _loadedObjects;
-
-	    public Dictionary<HAPI_NodeId, HEU_LoadBufferBase> _idBuffersMap;
-	}
-
-	public class HEU_LoadObject
-	{
-	    public HAPI_NodeId _objectNodeID;
-	    public HAPI_NodeId _displayNodeID;
 
 	    public List<HEU_LoadBufferVolume> _terrainBuffers;
 
@@ -1329,18 +1034,6 @@ namespace HoudiniEngineUnity
 
 	    public List<HEU_LoadBufferInstancer> _instancerBuffers;
 	}
-
-	public enum HEU_LoadCallbackType
-	{
-	    PRECOOK,
-	    POSTCOOK
-	}
-
-	public delegate void HEU_LoadCallback(HEU_SessionBase session, HEU_LoadData loadData, HEU_LoadCallbackType callbackType);
-
-	private HEU_LoadCallback _loadCallback;
-
-	#endregion
     }
 
 }   // namespace HoudiniEngineUnity

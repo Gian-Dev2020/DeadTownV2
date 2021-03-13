@@ -112,13 +112,6 @@ namespace HoudiniEngineUnity
 	private string _assetPath;
 	public string AssetPath { get { return _assetPath; } }
 
-	// If true, this asset file will be loaded into memory first
-	// in Unity, then HARS will load it from memory buffer.
-	[SerializeField]
-	private bool _loadAssetFromMemory;
-
-	public bool LoadAssetFromMemory { get { return _loadAssetFromMemory; } set { _loadAssetFromMemory = value; } }
-
 #pragma warning disable 0414
 	[SerializeField]
 	private UnityEngine.Object _assetFileObject;
@@ -163,10 +156,6 @@ namespace HoudiniEngineUnity
 
 	// Pending presets to apply after a Recook, which is invoked after a Rebuild
 	private HEU_RecookPreset _recookPreset;
-
-	// Keeps track of total cooks for this asset in order to check if need to update from Houdini
-	[SerializeField]
-	private int _totalCookCount;
 
 	// BUILD & COOK -----------------------------------------------------------------------------------------------
 
@@ -257,7 +246,7 @@ namespace HoudiniEngineUnity
 	private bool _showGenerateSection = true;
 
 	[SerializeField]
-	private bool _showBakeSection = false;
+	private bool _showBakeSection = true;
 
 	[SerializeField]
 	private bool _showEventsSection = false;
@@ -346,16 +335,6 @@ namespace HoudiniEngineUnity
 
 	public bool SplitGeosByGroup { get { return _splitGeosByGroup; } set { _splitGeosByGroup = value; } }
 
-	[SerializeField]
-	private bool _sessionSyncAutoCook = true;
-
-	public bool SessionSyncAutoCook { get { return _sessionSyncAutoCook; } set { _sessionSyncAutoCook = value; } }
-
-	[SerializeField]
-	private bool _bakeUpdateKeepPreviousTransformValues = false;
-
-	public bool BakeUpdateKeepPreviousTransformValues { get { return _bakeUpdateKeepPreviousTransformValues; } set { _bakeUpdateKeepPreviousTransformValues = value; } }
-
 	// CURVES -----------------------------------------------------------------------------------------------------
 
 	// Toggle curve editing tool in Scene view
@@ -430,9 +409,9 @@ namespace HoudiniEngineUnity
 	// PROFILE ----------------------------------------------------------------------------------------------------
 
 #if HEU_PROFILER_ON
-	private float _cookStartTime;
-	private float _hapiCookEndTime;
-	private float _postCookStartTime;
+		private float _cookStartTime;
+		private float _hapiCookEndTime;
+		private float _postCookStartTime;
 #endif
 
 	//  LOGIC -----------------------------------------------------------------------------------------------------
@@ -466,8 +445,6 @@ namespace HoudiniEngineUnity
 
 	    Debug.AssertFormat(session != null && session.IsSessionValid(), "Must have valid session for new asset");
 	    _sessionID = session.GetSessionData().SessionID;
-
-	    _totalCookCount = 0;
 	}
 
 	/// <summary>
@@ -495,15 +472,6 @@ namespace HoudiniEngineUnity
 	{
 #if HOUDINIENGINEUNITY_ENABLED
 	    //Debug.Log("HEU_HoudiniAsset::Awake - " + AssetName);
-
-	    // We want to support Object.Instantiate, but ScriptableObjects cannot copy by value by 
-	    // default. So we simulate the "duplicate" function when we detect that this occurs
-	    // This would be a lot easier if Unity provided some sort of Instantiate() callback...
-	    if (this.HasBeenInstantiated())
-	    {
-		HEU_HoudiniAsset instantiatedAsset = this.GetInstantiatedObject();
-	    	this.ResetAndCopyInstantiatedProperties(instantiatedAsset);
-	    }
 
 	    // All assets are checked if valid in Houdini Engine session in Awake.
 	    // Awake is called at scene load / script compilation / play mode change.
@@ -609,15 +577,12 @@ namespace HoudiniEngineUnity
 		else if (_requestBuildAction == AssetBuildAction.COOK)
 		{
 		    bool thisCheckParameterChangeForCook = _checkParameterChangeForCook;
-		    bool thisSkipCookCheck = _skipCookCheck;
+		    bool thisCkipCookCheck = _skipCookCheck;
 		    bool thisUploadParameters = _uploadParameters;
 		    bool thisUploadParameterPreset = false;
 		    bool thisForceUploadInputs = _forceUploadInputs;
-		    bool thisSessionSyncCook = false;
 		    ClearBuildRequest();
-		    RecookAsync(thisCheckParameterChangeForCook, thisSkipCookCheck, 
-			thisUploadParameters, thisUploadParameterPreset, 
-			thisForceUploadInputs, thisSessionSyncCook);
+		    RecookAsync(thisCheckParameterChangeForCook, thisCkipCookCheck, thisUploadParameters, thisUploadParameterPreset, thisForceUploadInputs);
 		}
 		else if (_requestBuildAction == AssetBuildAction.STRIP_HEDATA)
 		{
@@ -645,11 +610,6 @@ namespace HoudiniEngineUnity
 		    // Doing a Reload here to clear everything out after resetting the parameters.
 		    // Originally was doing a Recook but because it will keep stuff around (e.g. terrain), a full reset seems better.
 		    RequestReload(bAsync: true);
-		}
-		else
-		{
-		    // For Houdini Engine Session Sync, update any originating changes from Houdini side
-		    UpdateSessionSync();
 		}
 	    }
 #endif
@@ -753,9 +713,7 @@ namespace HoudiniEngineUnity
 	    {
 		if (_cookStatus == AssetCookStatus.NONE)
 		{
-		    RecookBlocking(bCheckParametersChanged, bSkipCookCheck, 
-			bUploadParameters, bUploadParameterPreset: false, 
-			bForceUploadInputs: false, bCookingSessionSync: false);
+		    RecookBlocking(bCheckParametersChanged, bSkipCookCheck, bUploadParameters, bUploadParameterPreset: false, bForceUploadInputs: false);
 		}
 		else
 		{
@@ -974,8 +932,6 @@ namespace HoudiniEngineUnity
 
 	    session.GetNodeInfo(_assetID, ref _nodeInfo);
 	    session.GetAssetInfo(_assetID, ref _assetInfo);
-	    
-	    UpdateTotalCookCount();
 
 	    // Cache asset info
 	    _assetName = HEU_SessionManager.GetString(_assetInfo.nameSH, session);
@@ -1054,15 +1010,8 @@ namespace HoudiniEngineUnity
 	/// </summary>
 	/// <param name="bCheckParamsChanged">If true, then will only cook if parameters have changed.</param>
 	/// <param name="bSkipCookCheck">If true, will check if cooking is enabled.</param>
-	/// <param name="bUploadParameters"> If true, will upload parameter values before cooking.</param>
-	/// <param name="bUploadParameterPreset">If true, will upload parameter preset into Houdini before cooking.</param>
-	/// <param name="bForceUploadInputs">If true, will upload all input geometry into Houdini before cooking.</param>
-	/// <param name="bCookingSessionSync">If true, this is a SessionSync cook.</param>
 	/// <returns>True if cooking started.</returns>
-	private bool RecookAsync(bool bCheckParamsChanged, 
-	    bool bSkipCookCheck, bool bUploadParameters, 
-	    bool bUploadParameterPreset, bool bForceUploadInputs,
-	    bool bCookingSessionSync)
+	private bool RecookAsync(bool bCheckParamsChanged, bool bSkipCookCheck, bool bUploadParameters, bool bUploadParameterPreset, bool bForceUploadInputs)
 	{
 #if HEU_PROFILER_ON
 	    _cookStartTime = Time.realtimeSinceStartup;
@@ -1072,10 +1021,7 @@ namespace HoudiniEngineUnity
 	    bool bStarted = false;
 	    try
 	    {
-		bStarted = InternalStartRecook(bCheckParamsChanged, 
-		    bSkipCookCheck, bUploadParameters, 
-		    bUploadParameterPreset, bForceUploadInputs, 
-		    bCookingSessionSync);
+		bStarted = InternalStartRecook(bCheckParamsChanged, bSkipCookCheck, bUploadParameters, bUploadParameterPreset, bForceUploadInputs);
 	    }
 	    catch (System.Exception ex)
 	    {
@@ -1098,14 +1044,11 @@ namespace HoudiniEngineUnity
 	/// </summary>
 	/// <param name="bCheckParamsChanged">If true, then will only cook if parameters have changed.</param>
 	/// <param name="bSkipCookCheck">If true, will check if cooking is enabled.</param>
-	/// <param name="bUploadParameters"> If true, will upload parameter values before cooking.</param>
+	/// <param name = "bUploadParameters" > If true, will upload parameter values before cooking.</param>
 	/// <param name="bUploadParameterPreset">If true, will upload parameter preset into Houdini before cooking.</param>
 	/// <param name="bForceUploadInputs">If true, will upload all input geometry into Houdini before cooking.</param>
-	/// <param name="bCookingSessionSync">If true, this is a SessionSync cook.</param>
 	/// <returns>True if cooking was done.</returns>
-	private bool RecookBlocking(bool bCheckParamsChanged, bool bSkipCookCheck, 
-	    bool bUploadParameters, bool bUploadParameterPreset, 
-	    bool bForceUploadInputs, bool bCookingSessionSync)
+	private bool RecookBlocking(bool bCheckParamsChanged, bool bSkipCookCheck, bool bUploadParameters, bool bUploadParameterPreset, bool bForceUploadInputs)
 	{
 #if HEU_PROFILER_ON
 	    _cookStartTime = Time.realtimeSinceStartup;
@@ -1115,9 +1058,7 @@ namespace HoudiniEngineUnity
 
 	    try
 	    {
-		bStarted = InternalStartRecook(bCheckParamsChanged, bSkipCookCheck, 
-		    bUploadParameters, bUploadParameterPreset, 
-		    bForceUploadInputs, bCookingSessionSync);
+		bStarted = InternalStartRecook(bCheckParamsChanged, bSkipCookCheck, bUploadParameters, bUploadParameterPreset, bForceUploadInputs);
 	    }
 	    catch (System.Exception ex)
 	    {
@@ -1216,15 +1157,11 @@ namespace HoudiniEngineUnity
 	/// </summary>
 	/// <param name="bCheckParamsChanged">If true, then will only cook if parameters have changed.</param>
 	/// <param name="bSkipCookCheck">If true, will check if cooking is enabled.</param>
-	/// <param name="bUploadParameters"> If true, will upload parameter values before cooking.</param>
+	/// <param name="bUploadParameters">If true, will upload parameter values before cooking.</param>
 	/// <param name="bUploadParameterPreset">If true, will upload parameter preset into Houdini before cooking.</param>
 	/// <param name="bForceUploadInputs">If true, will upload all input geometry into Houdini before cooking.</param>
-	/// <param name="bCookingSessionSync">If true, this is a SessionSync cook.</param>
 	/// <returns></returns>
-	private bool InternalStartRecook(bool bCheckParamsChanged, 
-	    bool bSkipCookCheck, bool bUploadParameters, 
-	    bool bUploadParameterPreset, bool bForceUploadInputs,
-	    bool bCookingSessionSync)
+	private bool InternalStartRecook(bool bCheckParamsChanged, bool bSkipCookCheck, bool bUploadParameters, bool bUploadParameterPreset, bool bForceUploadInputs)
 	{
 	    HEU_SessionBase session = GetAssetSession(true);
 	    if (session == null)
@@ -1367,38 +1304,33 @@ namespace HoudiniEngineUnity
 		}
 	    }
 
-	    if (!bCookingSessionSync)
+
+	    if (!_isCookingAssetReloaded)
 	    {
-		// Only upload the following if we are not cooking as a result of SessionSync
-		// i.e. Houdini already cook so no need to upload our own
+		// Non-reloaded asset: handle parameter preset
 
-		if (!_isCookingAssetReloaded)
+		if (bUploadParameterPreset)
 		{
-		    // Non-reloaded asset: handle parameter preset
-
-		    if (bUploadParameterPreset)
-		    {
-			// Parameter preset needs to be uploaded (could be due to parameter reset)
-			UploadParameterPresetToHoudini(session);
-		    }
-		    else
-		    {
-			// Otherwise curves should upload their parameters
-			UploadCurvesParameters(session, bCheckParamsChanged);
-		    }
+		    // Parameter preset needs to be uploaded (could be due to parameter reset)
+		    UploadParameterPresetToHoudini(session);
 		}
-
-		// Upload attributes. For edit nodes, this will be a cumulative update. So if the source geo has
-		// changed earlier in the graph, it will most likely be ignored here since the edit node has its own
-		// version of the geo with custom attributes. The only way to resolve it would be to blow away the custom
-		// attribute data (reset all edit node changes). Currently not enabled, though could be added as a 
-		// button that invokes edit node's Reset All Changes.
-		UploadAttributeValues(session);
-
-		// Upload asset inputs. 
-		// bForceUploadInputs allows to upload the input geometry when user hits Recook.
-		UploadInputNodes(session, _bForceUpdate | bForceUploadInputs, !bParamsUpdated);
+		else
+		{
+		    // Otherwise curves should upload their parameters
+		    UploadCurvesParameters(session, bCheckParamsChanged);
+		}
 	    }
+
+	    // Upload attributes. For edit nodes, this will be a cumulative update. So if the source geo has
+	    // changed earlier in the graph, it will most likely be ignored here since the edit node has its own
+	    // version of the geo with custom attributes. The only way to resolve it would be to blow away the custom
+	    // attribute data (reset all edit node changes). Currently not enabled, though could be added as a 
+	    // button that invokes edit node's Reset All Changes.
+	    UploadAttributeValues(session);
+
+	    // Upload asset inputs. 
+	    // bForceUploadInputs allows to upload the input geometry when user hits Recook.
+	    UploadInputNodes(session, _bForceUpdate | bForceUploadInputs, !bParamsUpdated);
 
 	    bResult = StartHoudiniCookNode(session);
 	    if (!bResult)
@@ -1461,22 +1393,6 @@ namespace HoudiniEngineUnity
 	    session.GetNodeInfo(_assetID, ref _nodeInfo);
 	    session.GetAssetInfo(_assetID, ref _assetInfo);
 
-	    string nodeStatusAll = session.ComposeNodeCookResult(_assetID, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_ALL);
-	    if (nodeStatusAll != "")
-	    {
-		session.AppendCookLog(nodeStatusAll);
-	    }
-
-	    string nodeStatusError = session.ComposeNodeCookResult(_assetID, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_ERRORS);
-	    if (nodeStatusError != "")
-	    {
-		SetCookStatus(AssetCookStatus.NONE, _lastCookResult = AssetCookResult.ERRORED);
-
-		string resultString = string.Format(HEU_Defines.HEU_NAME + ": Failed to cook asset {0}! \n{1}", AssetName, nodeStatusError);
-		Debug.LogErrorFormat(resultString);
-		return;
-	    }
-
 	    // We will always regenerate parameters after cooking to make sure we're in sync.
 	    GenerateParameters(session);
 
@@ -1535,18 +1451,12 @@ namespace HoudiniEngineUnity
 	    // Notify listeners that we've cooked!
 	    List<GameObject> outputObjects = new List<GameObject>();
 	    GetOutputGameObjects(outputObjects);
-	    if (_downstreamConnectionCookedEvent != null && HEU_PluginSettings.CookingTriggersDownstreamCooks && _cookingTriggersDownCooks)
+	    if (_downstreamConnectionCookedEvent != null)
 	    {
 		_downstreamConnectionCookedEvent.Invoke(this, true, outputObjects);
 	    }
 
 	    SetCookStatus(AssetCookStatus.NONE, AssetCookResult.SUCCESS);
-
-	    if (session.IsSessionSync())
-	    {
-		// Force a repaint in SessionSync so the Scene view updates
-		HEU_EditorUtility.RepaintScene();
-	    }
 
 #if HEU_PROFILER_ON
 	    Debug.LogFormat("RECOOK PROFILE:: TOTAL={0}, HAPI={1}, POST={2}", (Time.realtimeSinceStartup - _cookStartTime), (_hapiCookEndTime - _cookStartTime), (Time.realtimeSinceStartup - _postCookStartTime));
@@ -1578,12 +1488,7 @@ namespace HoudiniEngineUnity
 		bool bResult = true;
 		do
 		{
-		    bResult = session.GetCookState(out statusCode);
-
-		    // Add to cook log
-		    string cookStatus = session.GetStatusString(HAPI_StatusType.HAPI_STATUS_COOK_STATE, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_ERRORS);
-		    session.AppendCookLog(cookStatus);
-
+		    bResult = session.GetStatus(HAPI_StatusType.HAPI_STATUS_COOK_STATE, out statusCode);
 		    if (bResult && (statusCode > HAPI_State.HAPI_STATE_MAX_READY_STATE))
 		    {
 			// Still cooking. If async, we'll return, otherwise busy wait.
@@ -1620,8 +1525,6 @@ namespace HoudiniEngineUnity
 		    }
 
 		    SetCookStatus(AssetCookStatus.POSTCOOK, AssetCookResult.SUCCESS);
-
-		    UpdateTotalCookCount();
 
 		    try
 		    {
@@ -1789,7 +1692,7 @@ namespace HoudiniEngineUnity
 	    //Debug.Log(HEU_Defines.HEU_NAME + ": Generating parameters!");
 
 #if HEU_PROFILER_ON
-	    float parameterGenStartTime = Time.realtimeSinceStartup;
+			float parameterGenStartTime = Time.realtimeSinceStartup;
 #endif
 
 	    // Store the previous folder and input node parameters so we can transfer them over to new parameters
@@ -1816,7 +1719,7 @@ namespace HoudiniEngineUnity
 	    }
 
 #if HEU_PROFILER_ON
-	    Debug.LogFormat("PARAMETERS GENERATION TIME:: {0}", (Time.realtimeSinceStartup - parameterGenStartTime));
+			Debug.LogFormat("PARAMETERS GENERATION TIME:: {0}", (Time.realtimeSinceStartup - parameterGenStartTime));
 #endif
 	}
 
@@ -1915,20 +1818,7 @@ namespace HoudiniEngineUnity
 	    }
 
 	    HAPI_AssetLibraryId libraryID = 0;
-	    bool bResult = false;
-	    if (!_loadAssetFromMemory)
-	    {
-		bResult = session.LoadAssetLibraryFromFile(validAssetPath, false, out libraryID);
-	    }
-	    else
-	    {
-		byte[] buffer = null;
-		bResult = HEU_Platform.LoadFileIntoMemory(validAssetPath, out buffer);
-		if (bResult)
-		{
-		    bResult = session.LoadAssetLibraryFromMemory(buffer, false, out libraryID);
-		}
-	    }
+	    bool bResult = session.LoadAssetLibraryFromFile(validAssetPath, false, out libraryID);
 	    if (!bResult)
 	    {
 		return false;
@@ -2141,15 +2031,6 @@ namespace HoudiniEngineUnity
 
 	private void UploadAttributeValues(HEU_SessionBase session)
 	{
-	    for (int i = _attributeStores.Count - 1; i >= 0; i--)
-	    {
-		HEU_AttributesStore attributeStore = _attributeStores[i];
-		if (!attributeStore.IsValidStore(session))
-		{
-		    RemoveAttributeStore(attributeStore);
-		}
-	    }
-
 	    // Normally only the attribute stores that are dirty will be uploaded to Houdini.
 	    // But if _toolsInfo._alwaysCookUpstream is true, we will upload all attributes
 	    // if there is at least one of them that is dirty. This is to handle case where
@@ -2204,10 +2085,7 @@ namespace HoudiniEngineUnity
 	{
 	    foreach (HEU_AttributesStore attributeStore in _attributeStores)
 	    {
-		if (attributeStore.AreAttributesDirty())
-		{
-		    attributeStore.SyncDirtyAttributesToHoudini(session);
-		}
+		attributeStore.SyncDirtyAttributesToHoudini(session);
 	    }
 	}
 
@@ -2524,7 +2402,7 @@ namespace HoudiniEngineUnity
 		}
 		else
 		{
-		    HAPI_Transform hapiTransform = new HAPI_Transform(true);
+		    HAPI_Transform hapiTransform = new HAPI_Transform();
 		    session.GetObjectTransform(objectID, AssetID, HAPI_RSTOrder.HAPI_SRT, ref hapiTransform);
 		    if (Mathf.Approximately(0f, hapiTransform.scale[0]) || Mathf.Approximately(0f, hapiTransform.scale[1]) || Mathf.Approximately(0f, hapiTransform.scale[2]))
 		    {
@@ -2774,24 +2652,9 @@ namespace HoudiniEngineUnity
 	    string bakedAssetPath = existingPrefabFolder;
 	    bool bWriteMeshesToAssetDatabase = true;
 	    bool bReconnectPrefabInstances = false;
-
-	    List<TransformData> previousTransformValues = null;
-
-	    if (_bakeUpdateKeepPreviousTransformValues)
-	    {
-		previousTransformValues = new List<TransformData>();
-		List<Transform> previousTransforms = HEU_GeneralUtility.GetLODTransforms(bakeTargetGO);
-		previousTransforms.ForEach((Transform trans) => {  previousTransformValues.Add(new TransformData(trans)); });
-	    }
-	    
 	    GameObject newClonedRoot = CloneAssetWithoutHDA(ref bakedAssetPath, bWriteMeshesToAssetDatabase, bReconnectPrefabInstances);
 	    if (newClonedRoot != null)
 	    {
-		if (previousTransformValues != null)
-		{
-		    HEU_GeneralUtility.SetLODTransformValues(newClonedRoot, previousTransformValues);
-		}
-
 		try
 		{
 		    if (string.IsNullOrEmpty(bakedAssetPath))
@@ -2837,7 +2700,6 @@ namespace HoudiniEngineUnity
 	    bool bWriteMeshesToAssetDatabase = true;
 	    bool bDeleteExistingComponents = true;
 	    bool bReconnectPrefabInstances = true;
-	    bool bKeepPreviousTransformValues = _bakeUpdateKeepPreviousTransformValues;
 
 	    UnityEngine.Object targetAssetDBObject = null;
 
@@ -2867,7 +2729,7 @@ namespace HoudiniEngineUnity
 	    {
 		// Single object
 
-		clonableParts[0].BakePartToGameObject(bakeTargetGO, bDeleteExistingComponents, bDontDeletePersistantResources, bWriteMeshesToAssetDatabase, ref targetAssetPath, sourceToTargetMeshMap, sourceToCopiedMaterials, ref targetAssetDBObject, assetDBObjectFileName, bReconnectPrefabInstances, bKeepPreviousTransformValues);
+		clonableParts[0].BakePartToGameObject(bakeTargetGO, bDeleteExistingComponents, bDontDeletePersistantResources, bWriteMeshesToAssetDatabase, ref targetAssetPath, sourceToTargetMeshMap, sourceToCopiedMaterials, ref targetAssetDBObject, assetDBObjectFileName, bReconnectPrefabInstances);
 
 		outputObjects.Add(bakeTargetGO);
 		bBakedSuccessful = true;
@@ -2899,7 +2761,7 @@ namespace HoudiniEngineUnity
 			// Remove from target child list to avoid destroying it later when we process excess child gameobjects
 			unprocessedTargetChildren.Remove(targetObject);
 
-			partData.BakePartToGameObject(targetObject, bDeleteExistingComponents, bDontDeletePersistantResources, bWriteMeshesToAssetDatabase, ref targetAssetPath, sourceToTargetMeshMap, sourceToCopiedMaterials, ref targetAssetDBObject, assetDBObjectFileName, bReconnectPrefabInstances, bKeepPreviousTransformValues);
+			partData.BakePartToGameObject(targetObject, bDeleteExistingComponents, bDontDeletePersistantResources, bWriteMeshesToAssetDatabase, ref targetAssetPath, sourceToTargetMeshMap, sourceToCopiedMaterials, ref targetAssetDBObject, assetDBObjectFileName, bReconnectPrefabInstances);
 		    }
 
 		    outputObjects.Add(targetObject);
@@ -3033,7 +2895,7 @@ namespace HoudiniEngineUnity
 		    return;
 		}
 
-		HAPI_Transform hapiTransform = new HAPI_Transform(true);
+		HAPI_Transform hapiTransform = new HAPI_Transform();
 		session.GetObjectTransform(queryNodeID, -1, HAPI_RSTOrder.HAPI_SRT, ref hapiTransform);
 		if (Mathf.Approximately(0f, hapiTransform.scale[0]) || Mathf.Approximately(0f, hapiTransform.scale[1]) || Mathf.Approximately(0f, hapiTransform.scale[2]))
 		{
@@ -3041,7 +2903,7 @@ namespace HoudiniEngineUnity
 		}
 
 		// Using root transform as that represents our asset in the world
-		HEU_HAPIUtility.ApplyWorldTransfromFromHoudiniToUnity(ref hapiTransform, _rootGameObject.transform);
+		HEU_HAPIUtility.ApplyWorldTransfromFromHoudiniToUnity(hapiTransform, _rootGameObject.transform);
 
 		// Save last sync'd transform
 		_lastSyncedTransformMatrix = _rootGameObject.transform.localToWorldMatrix;
@@ -3779,11 +3641,11 @@ namespace HoudiniEngineUnity
 	    }
 	    else if (_assetType == HEU_AssetType.TYPE_CURVE)
 	    {
-		newRootGO = HEU_HAPIUtility.CreateNewCurveAsset(parentTransform: thisParentTransform, session: session, bBuildAsync: bBuildAsync);
+		newRootGO = HEU_HAPIUtility.CreateNewCurveAsset(thisParentTransform, session, bBuildAsync);
 	    }
 	    else if (_assetType == HEU_AssetType.TYPE_INPUT)
 	    {
-		newRootGO = HEU_HAPIUtility.CreateNewInputAsset(parentTransform: thisParentTransform, session: session, bBuildAsync: bBuildAsync);
+		newRootGO = HEU_HAPIUtility.CreateNewInputAsset(thisParentTransform, session, bBuildAsync);
 	    }
 	    else
 	    {
@@ -3800,7 +3662,171 @@ namespace HoudiniEngineUnity
 	    newRootTransform.localRotation = _rootGameObject.transform.localRotation;
 	    newRootTransform.localScale = _rootGameObject.transform.localScale;
 
-	    this.CopyPropertiesTo(newAsset);
+	    // Set parameter preset for asset
+	    newAsset.Parameters.SetPresetData(_parameters.GetPresetData());
+
+	    // Set parameter preset for curves
+	    int numCurves = newAsset._curves.Count;
+	    for (int i = 0; i < numCurves; ++i)
+	    {
+		HEU_Curve srcCurve = GetCurve(newAsset._curves[i].CurveName);
+		if (srcCurve != null)
+		{
+		    newAsset._curves[i].Parameters.SetPresetData(srcCurve.Parameters.GetPresetData());
+		}
+	    }
+
+	    newAsset._curveEditorEnabled = this._curveEditorEnabled;
+	    newAsset._curveDrawCollision = this._curveDrawCollision;
+	    newAsset._curveDrawColliders = new List<Collider>(this._curveDrawColliders);
+	    newAsset._curveDrawLayerMask = this._curveDrawLayerMask;
+
+	    // Upload parameter preset
+	    newAsset.UploadParameterPresetToHoudini(newAsset.GetAssetSession(false));
+
+	    this._instanceInputUIState.CopyTo(newAsset._instanceInputUIState);
+
+	    // Copy over asset options
+	    newAsset._showHDAOptions = this._showHDAOptions;
+	    newAsset._showGenerateSection = this._showGenerateSection;
+	    newAsset._showBakeSection = this._showBakeSection;
+	    newAsset._showEventsSection = this._showEventsSection;
+	    newAsset._showCurvesSection = this._showCurvesSection;
+	    newAsset._showInputNodesSection = this._showInputNodesSection;
+	    newAsset._showToolsSection = this._showToolsSection;
+	    newAsset._showTerrainSection = this._showTerrainSection;
+
+	    newAsset._generateUVs = this._generateUVs;
+	    newAsset._generateTangents = this._generateTangents;
+	    newAsset._generateNormals = this._generateNormals;
+	    newAsset._pushTransformToHoudini = this._pushTransformToHoudini;
+	    newAsset._transformChangeTriggersCooks = this._transformChangeTriggersCooks;
+	    newAsset._cookingTriggersDownCooks = this._cookingTriggersDownCooks;
+	    newAsset._autoCookOnParameterChange = this._autoCookOnParameterChange;
+	    newAsset._ignoreNonDisplayNodes = this._ignoreNonDisplayNodes;
+	    newAsset._generateMeshUsingPoints = this._generateMeshUsingPoints;
+	    newAsset._useLODGroups = this._useLODGroups;
+
+	    // Copy over tools state
+	    newAsset._editableNodesToolsEnabled = this._editableNodesToolsEnabled;
+	    newAsset._toolsInfo = ScriptableObject.Instantiate(this._toolsInfo) as HEU_ToolsInfo;
+
+	    // Copy events
+	    newAsset._reloadEvent = this._reloadEvent;
+	    newAsset._cookedEvent = this._cookedEvent;
+	    newAsset._bakedEvent = this._bakedEvent;
+
+	    newAsset._downstreamConnectionCookedEvent = this._downstreamConnectionCookedEvent;
+
+	    // Copy and upload attribute values
+	    int numAttributeStores = newAsset._attributeStores.Count;
+	    for (int i = 0; i < numAttributeStores; ++i)
+	    {
+		HEU_AttributesStore newAttrStore = newAsset._attributeStores[i];
+
+		HEU_AttributesStore srcAttrStore = this.GetAttributeStore(newAttrStore.GeoName, newAttrStore.PartID);
+		if (srcAttrStore != null)
+		{
+		    srcAttrStore.CopyAttributeValuesTo(newAttrStore);
+		}
+	    }
+
+	    // Copy and upload input nodes
+	    int numInputNodes = newAsset._inputNodes.Count;
+	    for (int i = 0; i < numInputNodes; ++i)
+	    {
+		HEU_InputNode newInputNode = newAsset._inputNodes[i];
+
+		HEU_InputNode srcInputNode = GetInputNodeByIndex(i);
+		if (srcInputNode != null)
+		{
+		    srcInputNode.CopyInputValuesTo(session, newInputNode);
+
+		    newInputNode.RequiresCook = srcInputNode.RequiresCook;
+		    newInputNode.RequiresUpload = srcInputNode.RequiresUpload;
+		}
+	    }
+
+	    // Copy and upload volume data
+	    int numVolumeCaches = newAsset._volumeCaches.Count;
+	    for (int i = 0; i < numVolumeCaches; ++i)
+	    {
+		HEU_VolumeCache newVolumeCache = newAsset._volumeCaches[i];
+
+		HEU_ObjectNode newObject = newAsset.GetObjectNodeByName(newVolumeCache.ObjectName);
+		HEU_ObjectNode srcObject = GetObjectNodeByName(newVolumeCache.ObjectName);
+
+		if (newObject != null && srcObject != null)
+		{
+		    HEU_GeoNode newGeoNode = newObject.GetGeoNode(newAsset._volumeCaches[i].GeoName);
+		    HEU_GeoNode srcGeoNode = srcObject.GetGeoNode(newAsset._volumeCaches[i].GeoName);
+
+		    if (newGeoNode != null && srcGeoNode != null)
+		    {
+			HEU_VolumeCache srcVolumeCache = srcGeoNode.GetVolumeCacheByTileIndex(newVolumeCache.TileIndex);
+			if (srcVolumeCache != null)
+			{
+			    srcVolumeCache.CopyValuesTo(newVolumeCache);
+			    newVolumeCache.IsDirty = true;
+			}
+		    }
+		}
+	    }
+
+	    if (newAsset._cookStatus == AssetCookStatus.POSTLOAD)
+	    {
+		newAsset.SetCookStatus(AssetCookStatus.NONE, AssetCookResult.SUCCESS);
+	    }
+
+	    newAsset.RequestCook(false, false, false, false);
+
+	    // For outputs, copy over material overrides, and custom (non-generated) components
+
+	    List<HEU_GeneratedOutput> sourceOutputs = new List<HEU_GeneratedOutput>();
+	    this.GetOutput(sourceOutputs);
+
+	    List<HEU_GeneratedOutput> destOutputs = new List<HEU_GeneratedOutput>();
+	    newAsset.GetOutput(destOutputs);
+
+	    int numSourceOutuputs = sourceOutputs.Count;
+	    int numDestOutputs = destOutputs.Count;
+	    if (numSourceOutuputs == numDestOutputs)
+	    {
+		for (int i = 0; i < numSourceOutuputs; ++i)
+		{
+		    // Main gameobject -> copy components (skip existing)
+		    if (sourceOutputs[i]._outputData._gameObject != null && destOutputs[i]._outputData._gameObject != null)
+		    {
+			HEU_GeneralUtility.CopyComponents(sourceOutputs[i]._outputData._gameObject, destOutputs[i]._outputData._gameObject);
+		    }
+
+		    bool bSrcHasLODGroup = HEU_GeneratedOutput.HasLODGroup(sourceOutputs[i]);
+		    bool bDestHasLODGroup = HEU_GeneratedOutput.HasLODGroup(destOutputs[i]);
+		    if (bSrcHasLODGroup && bDestHasLODGroup)
+		    {
+			// LOD Group -> copy child components (skip existing), and copy material overrides
+
+			int numSrcChildren = sourceOutputs[i]._childOutputs.Count;
+			int numDestChildren = destOutputs[i]._childOutputs.Count;
+			if (numSrcChildren == numDestChildren)
+			{
+			    for (int j = 0; j < numSrcChildren; ++j)
+			    {
+				HEU_GeneralUtility.CopyComponents(sourceOutputs[i]._childOutputs[j]._gameObject, destOutputs[i]._childOutputs[j]._gameObject);
+
+				HEU_GeneratedOutput.CopyMaterialOverrides(sourceOutputs[i]._childOutputs[j], destOutputs[i]._childOutputs[j]);
+			    }
+			}
+		    }
+		    else if (!bSrcHasLODGroup && !bDestHasLODGroup)
+		    {
+			// Non-LOD Group -> Copy material overrides
+
+			HEU_GeneratedOutput.CopyMaterialOverrides(sourceOutputs[i]._outputData, destOutputs[i]._outputData);
+		    }
+		}
+	    }
+
 
 	    // Select it
 	    HEU_EditorUtility.SelectObject(newRootGO);
@@ -4016,9 +4042,7 @@ namespace HoudiniEngineUnity
 
 	    Parameters.RecacheUI = true;
 
-	    RecookBlocking(bCheckParamsChanged: false, bSkipCookCheck: true, 
-		bUploadParameters: false, bUploadParameterPreset: true, 
-		bForceUploadInputs: false, bCookingSessionSync: false);
+	    RecookBlocking(bCheckParamsChanged: false, bSkipCookCheck: true, bUploadParameters: false, bUploadParameterPreset: true, bForceUploadInputs: false);
 	}
 
 	/// <summary>
@@ -4163,310 +4187,6 @@ namespace HoudiniEngineUnity
 		if (curve.Parameters != null)
 		{
 		    curve.Parameters.SyncInternalParametersForUndoCompare(session);
-		}
-	    }
-	}
-
-	/// <summary>
-	/// Returns true if this has kicked off a local cook because of changes 
-	/// on the Houdini side (e.g. Houdini Engine Session Sync).
-	/// Otherwise returns false if it does nothing.
-	/// </summary>
-	public bool UpdateSessionSync()
-	{
-	    //Debug.Log("Time: " + Time.realtimeSinceStartup);
-
-	    if (_requestBuildAction != AssetBuildAction.NONE || !HEU_PluginSettings.SessionSyncAutoCook || !SessionSyncAutoCook)
-	    {
-		return false;
-	    }
-
-	    HEU_SessionBase session = GetAssetSession(false);
-	    if (session == null || !session.IsSessionValid() || !session.IsSessionSync())
-	    {
-		return false;
-	    }
-
-	    int oldCount = _totalCookCount;
-	    UpdateTotalCookCount();
-	    bool bRequiresCook = oldCount != _totalCookCount;
-
-	    int numInputNodes = this._inputNodes.Count;
-
-
-	    if (bRequiresCook)
-	    {
-		//Debug.LogFormat("Recooking asset because of cook count mismatch: current={0} != new={1}", oldCount, _totalCookCount);
-
-		// Disable parm and input uploading for the recook process
-		bool thisCheckParameterChangeForCook = false;
-		bool thiSkipCookCheck = false;
-		bool thisUploadParameters = false;
-		bool thisUploadParameterPreset = false;
-		bool thisForceUploadInputs = false;
-		bool thisSessionSyncCook = true;
-		ClearBuildRequest();
-		return RecookAsync(thisCheckParameterChangeForCook, thiSkipCookCheck, 
-		    thisUploadParameters, thisUploadParameterPreset, 
-		    thisForceUploadInputs, thisSessionSyncCook);
-	    }
-
-	    return false;
-	}
-
-	public void UpdateTotalCookCount()
-	{
-	    HEU_SessionBase session = GetAssetSession(true);
-	    if (session == null || !session.IsSessionValid())
-	    {
-		return;
-	    }
-
-	    // The reason to query recursively for all assets (SOP and OBJ) is to handle cases
-	    // where nodes are added dynamically within geometry node network. If we only look
-	    // at the SOP node's count, it won't update until the user comes out the network
-	    session.GetTotalCookCount(
-		    _assetID,
-		    (int)(HAPI_NodeType.HAPI_NODETYPE_OBJ | HAPI_NodeType.HAPI_NODETYPE_SOP),
-		    (int)(HAPI_NodeFlags.HAPI_NODEFLAGS_OBJ_GEOMETRY | HAPI_NodeFlags.HAPI_NODEFLAGS_DISPLAY),
-		    true, out _totalCookCount);
-	}
-
-	private void ResetAndCopyInstantiatedProperties(HEU_HoudiniAsset newAsset)
-	{
-	    InvalidateAsset();
-
-	    // Setup again to avoid null references
-	    SetupAsset(_assetType, _assetPath, _rootGameObject, GetAssetSession(true));
-
-	    // Destroy everything except the root object and this
-	    // This ensures that there are no dangling gameobjects from the instantiation
-	    // Note that this creates a limitation, where a duplicated object destroys all children of it
-	    // but I think it's fine, since we stated in the docs that we don't fully support duplication in the first
-	    // place ;)
-	    Transform[] gos = _rootGameObject.GetComponentsInChildren<Transform>();
-	    foreach (Transform trans in gos)
-	    {
-		if (trans != null && trans.gameObject != null && trans.gameObject != this.gameObject && trans.gameObject != _rootGameObject)
-		{
-		    DestroyImmediate(trans.gameObject);
-		}
-	    }
-
-	    HEU_SessionBase session = GetAssetSession(true);
-	    bool bBuildAsync = false;
-		
-	    // Populate asset with what we know
-	    this.SetupAsset(newAsset._assetType, newAsset._assetPath, this.transform.parent.gameObject, session);
-
-	    // Build it in Houdini Engine
-	    this.RequestReload(bBuildAsync);
-
-	    newAsset.CopyPropertiesTo(this);
-	}
-
-	private bool HasBeenInstantiated()
-	{
-	    if (this._objectNodes == null)
-	    {
-	        return false;
-	    }
-	    // ScriptableObjects do not instanitate correctly. The only way I found
-	    // to check this is to check if _objectNodes[i].ParentAsset is our object
-	    foreach (HEU_ObjectNode objNode in this._objectNodes)
-	    {
-		if (objNode.ParentAsset != this)
-		{
-		    return true;
-		}
-	    }
-
-	    return false;
-	}
-
-	private HEU_HoudiniAsset GetInstantiatedObject()
-	{
-	    if (this._objectNodes == null || this._objectNodes.Count == 0)
-	    {
-		return null;
-	    }
-
-	    if (!HasBeenInstantiated())
-	    {
- 	        return null;
-	    }
-	    
-	    // See: HasBeenInstantiated()
-	    return this._objectNodes[0].ParentAsset;
-	}
-
-
-	private void CopyPropertiesTo(HEU_HoudiniAsset newAsset)
-	{
-	    HEU_SessionBase session = GetAssetSession(true);
-
-	    // Set parameter preset for asset
-	    newAsset.Parameters.SetPresetData(_parameters.GetPresetData());
-
-	    // Set parameter preset for curves
-	    int numCurves = newAsset._curves.Count;
-	    for (int i = 0; i < numCurves; ++i)
-	    {
-		HEU_Curve srcCurve = GetCurve(newAsset._curves[i].CurveName);
-		if (srcCurve != null)
-		{
-		    newAsset._curves[i].Parameters.SetPresetData(srcCurve.Parameters.GetPresetData());
-		}
-	    }
-
-	    newAsset._curveEditorEnabled = this._curveEditorEnabled;
-	    newAsset._curveDrawCollision = this._curveDrawCollision;
-	    newAsset._curveDrawColliders = new List<Collider>(this._curveDrawColliders);
-	    newAsset._curveDrawLayerMask = this._curveDrawLayerMask;
-
-	    // Upload parameter preset
-	    newAsset.UploadParameterPresetToHoudini(newAsset.GetAssetSession(false));
-
-	    this._instanceInputUIState.CopyTo(newAsset._instanceInputUIState);
-
-	    // Copy over asset options
-	    newAsset._showHDAOptions = this._showHDAOptions;
-	    newAsset._showGenerateSection = this._showGenerateSection;
-	    newAsset._showBakeSection = this._showBakeSection;
-	    newAsset._showEventsSection = this._showEventsSection;
-	    newAsset._showCurvesSection = this._showCurvesSection;
-	    newAsset._showInputNodesSection = this._showInputNodesSection;
-	    newAsset._showToolsSection = this._showToolsSection;
-	    newAsset._showTerrainSection = this._showTerrainSection;
-
-	    newAsset._generateUVs = this._generateUVs;
-	    newAsset._generateTangents = this._generateTangents;
-	    newAsset._generateNormals = this._generateNormals;
-	    newAsset._pushTransformToHoudini = this._pushTransformToHoudini;
-	    newAsset._transformChangeTriggersCooks = this._transformChangeTriggersCooks;
-	    newAsset._cookingTriggersDownCooks = this._cookingTriggersDownCooks;
-	    newAsset._autoCookOnParameterChange = this._autoCookOnParameterChange;
-	    newAsset._ignoreNonDisplayNodes = this._ignoreNonDisplayNodes;
-	    newAsset._generateMeshUsingPoints = this._generateMeshUsingPoints;
-	    newAsset._useLODGroups = this._useLODGroups;
-
-	    // Copy over tools state
-	    newAsset._editableNodesToolsEnabled = this._editableNodesToolsEnabled;
-	    newAsset._toolsInfo = ScriptableObject.Instantiate(this._toolsInfo) as HEU_ToolsInfo;
-
-	    // Copy events
-	    newAsset._reloadEvent = this._reloadEvent;
-	    newAsset._cookedEvent = this._cookedEvent;
-	    newAsset._bakedEvent = this._bakedEvent;
-
-	    newAsset._downstreamConnectionCookedEvent = this._downstreamConnectionCookedEvent;
-
-	    // Copy and upload attribute values
-	    int numAttributeStores = newAsset._attributeStores.Count;
-	    for (int i = 0; i < numAttributeStores; ++i)
-	    {
-		HEU_AttributesStore newAttrStore = newAsset._attributeStores[i];
-
-		HEU_AttributesStore srcAttrStore = this.GetAttributeStore(newAttrStore.GeoName, newAttrStore.PartID);
-		if (srcAttrStore != null)
-		{
-		    srcAttrStore.CopyAttributeValuesTo(newAttrStore);
-		}
-	    }
-
-	    // Copy and upload input nodes
-	    int numInputNodes = newAsset._inputNodes.Count;
-	    for (int i = 0; i < numInputNodes; ++i)
-	    {
-		HEU_InputNode newInputNode = newAsset._inputNodes[i];
-
-		HEU_InputNode srcInputNode = GetInputNodeByIndex(i);
-		if (srcInputNode != null)
-		{
-		    srcInputNode.CopyInputValuesTo(session, newInputNode);
-
-		    newInputNode.RequiresCook = srcInputNode.RequiresCook;
-		    newInputNode.RequiresUpload = srcInputNode.RequiresUpload;
-		}
-	    }
-
-	    // Copy and upload volume data
-	    int numVolumeCaches = newAsset._volumeCaches.Count;
-	    for (int i = 0; i < numVolumeCaches; ++i)
-	    {
-		HEU_VolumeCache newVolumeCache = newAsset._volumeCaches[i];
-
-		HEU_ObjectNode newObject = newAsset.GetObjectNodeByName(newVolumeCache.ObjectName);
-		HEU_ObjectNode srcObject = GetObjectNodeByName(newVolumeCache.ObjectName);
-
-		if (newObject != null && srcObject != null)
-		{
-		    HEU_GeoNode newGeoNode = newObject.GetGeoNode(newAsset._volumeCaches[i].GeoName);
-		    HEU_GeoNode srcGeoNode = srcObject.GetGeoNode(newAsset._volumeCaches[i].GeoName);
-
-		    if (newGeoNode != null && srcGeoNode != null)
-		    {
-			HEU_VolumeCache srcVolumeCache = srcGeoNode.GetVolumeCacheByTileIndex(newVolumeCache.TileIndex);
-			if (srcVolumeCache != null)
-			{
-			    srcVolumeCache.CopyValuesTo(newVolumeCache);
-			    newVolumeCache.IsDirty = true;
-			}
-		    }
-		}
-	    }
-
-	    if (newAsset._cookStatus == AssetCookStatus.POSTLOAD)
-	    {
-		newAsset.SetCookStatus(AssetCookStatus.NONE, AssetCookResult.SUCCESS);
-	    }
-
-	    newAsset.RequestCook(false, false, false, false);
-
-	    // For outputs, copy over material overrides, and custom (non-generated) components
-
-	    List<HEU_GeneratedOutput> sourceOutputs = new List<HEU_GeneratedOutput>();
-	    this.GetOutput(sourceOutputs);
-
-	    List<HEU_GeneratedOutput> destOutputs = new List<HEU_GeneratedOutput>();
-	    newAsset.GetOutput(destOutputs);
-
-	    int numSourceOutuputs = sourceOutputs.Count;
-	    int numDestOutputs = destOutputs.Count;
-	    if (numSourceOutuputs == numDestOutputs)
-	    {
-		for (int i = 0; i < numSourceOutuputs; ++i)
-		{
-		    // Main gameobject -> copy components (skip existing)
-		    if (sourceOutputs[i]._outputData._gameObject != null && destOutputs[i]._outputData._gameObject != null)
-		    {
-			HEU_GeneralUtility.CopyComponents(sourceOutputs[i]._outputData._gameObject, destOutputs[i]._outputData._gameObject);
-		    }
-
-		    bool bSrcHasLODGroup = HEU_GeneratedOutput.HasLODGroup(sourceOutputs[i]);
-		    bool bDestHasLODGroup = HEU_GeneratedOutput.HasLODGroup(destOutputs[i]);
-		    if (bSrcHasLODGroup && bDestHasLODGroup)
-		    {
-			// LOD Group -> copy child components (skip existing), and copy material overrides
-
-			int numSrcChildren = sourceOutputs[i]._childOutputs.Count;
-			int numDestChildren = destOutputs[i]._childOutputs.Count;
-			if (numSrcChildren == numDestChildren)
-			{
-			    for (int j = 0; j < numSrcChildren; ++j)
-			    {
-				HEU_GeneralUtility.CopyComponents(sourceOutputs[i]._childOutputs[j]._gameObject, destOutputs[i]._childOutputs[j]._gameObject);
-
-				HEU_GeneratedOutput.CopyMaterialOverrides(sourceOutputs[i]._childOutputs[j], destOutputs[i]._childOutputs[j]);
-			    }
-			}
-		    }
-		    else if (!bSrcHasLODGroup && !bDestHasLODGroup)
-		    {
-			// Non-LOD Group -> Copy material overrides
-
-			HEU_GeneratedOutput.CopyMaterialOverrides(sourceOutputs[i]._outputData, destOutputs[i]._outputData);
-		    }
 		}
 	    }
 	}

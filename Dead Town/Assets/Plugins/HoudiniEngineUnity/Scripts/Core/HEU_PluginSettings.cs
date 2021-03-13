@@ -398,26 +398,6 @@ namespace HoudiniEngineUnity
 	    }
 	}
 
-	public static SessionMode Session_Mode
-	{
-	    get
-	    {
-		int mode = 0;
-		HEU_PluginStorage.Instance.Get("HAPI_SessionMode", out mode, mode);
-		if(mode == (int)SessionMode.Pipe)
-		{
-		    return SessionMode.Pipe;
-		}
-
-		return SessionMode.Socket;
-	    }
-	    set
-	    {
-		int mode = (int)value;
-		HEU_PluginStorage.Instance.Set("HAPI_SessionMode", mode);
-	    }
-	}
-
 	public static string Session_PipeName
 	{
 	    get
@@ -718,7 +698,7 @@ namespace HoudiniEngineUnity
 	    get
 	    {
 #if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
-		string path = HEU_Platform.GetHoudiniEnginePath();
+				string path = HEU_Platform.GetHoudiniEnginePath();
 #else
 		string path = HEU_Platform.GetHoudiniEnginePath() + HEU_HoudiniVersion.HAPI_BIN_PATH + HEU_Platform.DirectorySeparator + "houdini";
 #endif
@@ -854,34 +834,6 @@ namespace HoudiniEngineUnity
 	    set
 	    {
 		HEU_PluginStorage.Instance.Set("HAPI_LastHoudiniVersion", value);
-	    }
-	}
-
-	public static bool SessionSyncAutoCook
-	{
-	    get
-	    {
-		bool enabled = true;
-		HEU_PluginStorage.Instance.Get("HAPI_SessionSyncAutoCook", out enabled, enabled);
-		return enabled;
-	    }
-	    set
-	    {
-		HEU_PluginStorage.Instance.Set("HAPI_SessionSyncAutoCook", value);
-	    }
-	}
-
-	public static bool WriteCookLogs
-	{
-	    get
-	    {
-		bool enabled = true;
-		HEU_PluginStorage.Instance.Get("HAPI_WriteCookLogs", out enabled, enabled);
-		return enabled;
-	    }
-	    set
-	    {
-		HEU_PluginStorage.Instance.Set("HAPI_WriteCookLogs", value);
 	    }
 	}
     }

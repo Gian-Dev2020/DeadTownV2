@@ -28,10 +28,8 @@
 #define HOUDINIENGINEUNITY_ENABLED
 #endif
 
-using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using UnityEngine;
@@ -40,9 +38,6 @@ namespace HoudiniEngineUnity
 {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Typedefs (copy these from HEU_Common.cs)
-    using HAPI_UInt8 = System.Byte;
-    using HAPI_Int8 = System.SByte;
-    using HAPI_Int16 = System.Int16;
     using HAPI_Int64 = System.Int64;
     using HAPI_StringHandle = System.Int32;
     using HAPI_ErrorCodeBits = System.Int32;
@@ -147,14 +142,12 @@ namespace HoudiniEngineUnity
 		}
 
 		// Start at failed since this is several steps. Once connected, we can set it as such.
-		ConnectionState = SessionConnectionState.FAILED_TO_CONNECT;
+		ConnectedState = SessionConnectionState.FAILED_TO_CONNECT;
 
 		HAPI_Result result = HEU_HAPIImports.HAPI_CreateInProcessSession(out _sessionData._HAPISession);
 		if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 		{
 		    SetSessionErrorMsg(string.Format("Unable to start in-process session.\n Make sure {0} exists.", HEU_Platform.LibPath), true);
-
-		    HandleSessionConnectionFailure();
 		    return false;
 		}
 
@@ -163,7 +156,6 @@ namespace HoudiniEngineUnity
 		// Make sure API version matches with plugin version
 		if (!CheckVersionMatch())
 		{
-		    HandleSessionConnectionFailure();
 		    return false;
 		}
 
@@ -171,8 +163,6 @@ namespace HoudiniEngineUnity
 	    }
 	    catch (System.Exception ex)
 	    {
-		HandleSessionConnectionFailure();
-
 		if (ex is System.DllNotFoundException || ex is System.EntryPointNotFoundException)
 		{
 		    SetLibraryErrorMsg(true);
@@ -193,16 +183,11 @@ namespace HoudiniEngineUnity
 	/// <param name="autoClose"></param>
 	/// <param name="timeout"></param>
 	/// <returns>True if successfully created session.</returns>
-	public override bool CreateThriftSocketSession(
-	    bool bIsDefaultSession, string hostName, int serverPort, 
-	    bool autoClose, float timeout, bool logError)
+	public override bool CreateThriftSocketSession(bool bIsDefaultSession, string hostName, int serverPort, bool autoClose, float timeout, bool bLogError)
 	{
 	    try
 	    {
-		return InternalConnectThriftSocketSession(
-		    true, hostName, serverPort, autoClose, timeout, 
-		    bIsDefaultSession,
-		    logError: logError, autoInitialize: true);
+		return InternalConnectThriftSocketSession(true, hostName, serverPort, autoClose, timeout, bIsDefaultSession);
 	    }
 	    catch (System.Exception ex)
 	    {
@@ -228,11 +213,7 @@ namespace HoudiniEngineUnity
 	/// <param name="autoClose"></param>
 	/// <param name="timeout"></param>
 	/// <returns>True if successfully connected session.</returns>
-	private bool InternalConnectThriftSocketSession(bool bCreateSession, 
-	    string hostName, int serverPort, bool autoClose, float timeout, 
-	    bool bIsDefaultSession,
-	    bool logError,
-	    bool autoInitialize)
+	private bool InternalConnectThriftSocketSession(bool bCreateSession, string hostName, int serverPort, bool autoClose, float timeout, bool bIsDefaultSession)
 	{
 	    CheckAndCloseExistingSession();
 	    if (!CreateSessionData(true, bIsDefaultSession))
@@ -244,9 +225,13 @@ namespace HoudiniEngineUnity
 	    HAPI_Result result;
 
 	    // Start at failed since this is several steps. Once connected, we can set it as such.
-	    ConnectionState = SessionConnectionState.FAILED_TO_CONNECT;
+	    ConnectedState = SessionConnectionState.FAILED_TO_CONNECT;
 
-	    HEU_SessionManager.ClearConnectionError();
+	    string sessionConnectionErrorMsg = string.Format("\nHost name: {0}"
+		    + "\nPort: {1}"
+		    + "\nCheck Session information in Plugin Settings."
+		    + "\nCheck that {2} exists.",
+		    hostName, serverPort, HEU_Platform.LibPath);
 
 	    if (bCreateSession)
 	    {
@@ -258,48 +243,23 @@ namespace HoudiniEngineUnity
 		result = HEU_HAPIImports.HAPI_StartThriftSocketServer(ref serverOptions, serverPort, out processID);
 		if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 		{
-		    bool bIsHARSRunning = HEU_SessionManager.IsHARSProcessRunning(processID);
-		    SetSessionConnectionErrorMsg("Unable to start the Houdini Engine server (socket mode).",
-			result, bIsHARSRunning, logError);
-
-		    HandleSessionConnectionFailure();
+		    SetSessionErrorMsg(string.Format("Unable to start socket server.\nError Code: {1}\n{0}", result, sessionConnectionErrorMsg), true);
 		    return false;
 		}
 	    }
-
-            AppDomain currentDomain = AppDomain.CurrentDomain;
-            Assembly[] assemblies = currentDomain.GetAssemblies();
-            string assemblyList = "";
-            foreach (Assembly assembly in assemblies)
-            {
-                if (!String.IsNullOrEmpty(assemblyList))
-                {
-                    assemblyList = String.Concat(assemblyList, ";");
-                }
-                assemblyList = String.Concat(assemblyList, assembly.GetName().Name);
-            }
-
-            HEU_HAPIImports.harcSetManagedHostLibrariesList(assemblyList);
-
-	    _sessionData.ProcessID = processID;
-	    _sessionData.Port = serverPort;
 
 	    // Then create the session
 	    _sessionData._HAPISession.type = HAPI_SessionType.HAPI_SESSION_THRIFT;
 	    result = HEU_HAPIImports.HAPI_CreateThriftSocketSession(out _sessionData._HAPISession, hostName, serverPort);
 	    if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 	    {
-		string harsMsg = "";
+		string debugMsg = "";
 		if (!bCreateSession)
 		{
-		    harsMsg = "\n\nMake sure you started the HARS server located in Houdini.";
+		    debugMsg = "\n\nMake sure you started Houdini Engine Debugger in Houdini (Windows -> Houdini Engine Debugger)";
 		}
 
-		bool bIsHARSRunning = HEU_SessionManager.IsHARSProcessRunning(processID);
-		SetSessionConnectionErrorMsg("Unable to connect to the Houdini Engine server (socket mode)." + harsMsg,
-			result, bIsHARSRunning, logError);
-
-		HandleSessionConnectionFailure();
+		SetSessionErrorMsg(string.Format("Unable to create socket session.\nError Code: {0}\n{1}{2}", result, sessionConnectionErrorMsg, debugMsg), true);
 		return false;
 	    }
 
@@ -308,25 +268,10 @@ namespace HoudiniEngineUnity
 	    // Make sure API version matches with plugin version
 	    if (!CheckVersionMatch())
 	    {
-		HandleSessionConnectionFailure();
 		return false;
 	    }
 
-	    if (autoInitialize)
-	    {
-		return InitializeSession(_sessionData);
-	    }
-	    return true;
-	}
-
-	/// <summary>
-	/// Handles the session connection failure.
-	/// For now just closes session, but providing
-	/// an abstraction so as to improve later if needed.
-	/// </summary>
-	private void HandleSessionConnectionFailure()
-	{
-	    CloseSession();
+	    return InitializeSession(_sessionData);
 	}
 
 	/// <summary>
@@ -336,21 +281,17 @@ namespace HoudiniEngineUnity
 	/// <param name="autoClose"></param>
 	/// <param name="timeout"></param>
 	/// <returns>True if successfully created session.</returns>
-	public override bool CreateThriftPipeSession(
-	    bool bIsDefaultSession, string pipeName, bool autoClose, 
-	    float timeout, bool logError)
+	public override bool CreateThriftPipeSession(bool bIsDefaultSession, string pipeName, bool autoClose, float timeout, bool bLogError)
 	{
 	    try
 	    {
-		return InternalCreateThriftPipeSession(
-		    true, pipeName, autoClose, timeout, bIsDefaultSession,
-		    logError: logError, autoInitialize: true);
+		return InternalCreateThriftPipeSession(true, pipeName, autoClose, timeout, bIsDefaultSession);
 	    }
 	    catch (System.Exception ex)
 	    {
 		if (ex is System.DllNotFoundException || ex is System.EntryPointNotFoundException)
 		{
-		    SetLibraryErrorMsg(logError);
+		    SetLibraryErrorMsg(bLogError);
 		}
 		else
 		{
@@ -369,11 +310,7 @@ namespace HoudiniEngineUnity
 	/// <param name="autoClose"></param>
 	/// <param name="timeout"></param>
 	/// <returns>True if successfully created session.</returns>
-	private bool InternalCreateThriftPipeSession(bool bCreateSession, 
-	    string pipeName, bool autoClose, float timeout, 
-	    bool bIsDefaultSession,
-	    bool logError,
-	    bool autoInitialize)
+	private bool InternalCreateThriftPipeSession(bool bCreateSession, string pipeName, bool autoClose, float timeout, bool bIsDefaultSession)
 	{
 	    CheckAndCloseExistingSession();
 	    if (!CreateSessionData(true, bIsDefaultSession))
@@ -387,9 +324,12 @@ namespace HoudiniEngineUnity
 	    _sessionData.PipeName = pipeName;
 
 	    // Start at failed since this is several steps. Once connected, we can set it as such.
-	    ConnectionState = SessionConnectionState.FAILED_TO_CONNECT;
+	    ConnectedState = SessionConnectionState.FAILED_TO_CONNECT;
 
-	    HEU_SessionManager.ClearConnectionError();
+	    string sessionConnectionErrorMsg = string.Format("\nPipe name: {0}."
+		    + "\nCheck Session information in Plugin Settings."
+		    + "\nCheck that {1} exists.",
+		    pipeName, HEU_Platform.LibPath);
 
 	    if (bCreateSession)
 	    {
@@ -401,28 +341,10 @@ namespace HoudiniEngineUnity
 		result = HEU_HAPIImports.HAPI_StartThriftNamedPipeServer(ref serverOptions, pipeName, out processID);
 		if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 		{
-		    bool bIsHARSRunning = HEU_SessionManager.IsHARSProcessRunning(processID);
-		    SetSessionConnectionErrorMsg("Unable to start the Houdini Engine server (pipe mode).",
-			result, bIsHARSRunning, logError);
-
-		    HandleSessionConnectionFailure();
+		    SetSessionErrorMsg(string.Format("Unable to start RPC server.\nError Code: {0}\n{1}", result, sessionConnectionErrorMsg));
 		    return false;
 		}
 	    }
-
-            AppDomain currentDomain = AppDomain.CurrentDomain;
-            Assembly[] assemblies = currentDomain.GetAssemblies();
-            string assemblyList = "";
-            foreach (Assembly assembly in assemblies)
-            {
-                if (!String.IsNullOrEmpty(assemblyList))
-                {
-                    assemblyList = String.Concat(assemblyList, ";");
-                }
-                assemblyList = String.Concat(assemblyList, assembly.GetName().Name);
-            }
-
-            HEU_HAPIImports.harcSetManagedHostLibrariesList(assemblyList);
 
 	    _sessionData.ProcessID = processID;
 
@@ -431,17 +353,13 @@ namespace HoudiniEngineUnity
 	    result = HEU_HAPIImports.HAPI_CreateThriftNamedPipeSession(out _sessionData._HAPISession, pipeName);
 	    if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 	    {
-		string harsMsg = "";
+		string debugMsg = "";
 		if (!bCreateSession)
 		{
-		    harsMsg = "\n\nMake sure you started the HARS server located in Houdini.";
+		    debugMsg = "\n\nMake sure you started Houdini Engine Debugger in Houdini (Windows -> Houdini Engine Debugger)";
 		}
 
-		bool bIsHARSRunning = HEU_SessionManager.IsHARSProcessRunning(processID);
-		SetSessionConnectionErrorMsg("Unable to connect to the Houdini Engine server (pipe mode)." + harsMsg,
-			result, bIsHARSRunning, logError);
-
-		HandleSessionConnectionFailure();
+		SetSessionErrorMsg(string.Format("Unable to create RPC pipe session.\nError Code: {0}\n{1}{2}", result, sessionConnectionErrorMsg, debugMsg));
 		return false;
 	    }
 
@@ -450,15 +368,10 @@ namespace HoudiniEngineUnity
 	    // Make sure API version matches with plugin version
 	    if (!CheckVersionMatch())
 	    {
-		HandleSessionConnectionFailure();
 		return false;
 	    }
 
-	    if (autoInitialize)
-	    {
-		return InitializeSession(_sessionData);
-	    }
-	    return true;
+	    return InitializeSession(_sessionData);
 	}
 
 	public override bool CreateCustomSession(bool bIsDefaultSession)
@@ -474,11 +387,9 @@ namespace HoudiniEngineUnity
 	/// <param name="autoClose"></param>
 	/// <param name="timeout"></param>
 	/// <returns></returns>
-	public override bool ConnectThriftSocketSession(bool bIsDefaultSession, 
-	    string hostName, int serverPort, bool autoClose, float timeout,
-	    bool logError, bool autoInitialize)
+	public override bool ConnectThriftSocketSession(bool bIsDefaultSession, string hostName, int serverPort, bool autoClose, float timeout)
 	{
-	    return InternalConnectThriftSocketSession(false, hostName, serverPort, autoClose, timeout, bIsDefaultSession, logError, autoInitialize);
+	    return InternalConnectThriftSocketSession(false, hostName, serverPort, autoClose, timeout, bIsDefaultSession);
 	}
 
 	/// <summary>
@@ -488,11 +399,9 @@ namespace HoudiniEngineUnity
 	/// <param name="autoClose"></param>
 	/// <param name="timeout"></param>
 	/// <returns></returns>
-	public override bool ConnectThriftPipeSession(bool bIsDefaultSession, 
-	    string pipeName, bool autoClose, float timeout,
-	    bool logError, bool autoInitialize)
+	public override bool ConnectThriftPipeSession(bool bIsDefaultSession, string pipeName, bool autoClose, float timeout)
 	{
-	    return InternalCreateThriftPipeSession(false, pipeName, autoClose, timeout, bIsDefaultSession, logError, autoInitialize);
+	    return InternalCreateThriftPipeSession(false, pipeName, autoClose, timeout, bIsDefaultSession);
 	}
 
 	/// <summary>
@@ -508,28 +417,20 @@ namespace HoudiniEngineUnity
 
 		try
 		{
-		    HAPI_Result result;
-
 		    if (IsSessionValid())
 		    {
-			// TODO: revisit not calling HAPI_CleanUp for SessionSync
-			//if (!IsSessionSync())
+			HAPI_Result result = HEU_HAPIImports.HAPI_Cleanup(ref _sessionData._HAPISession);
+			if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 			{
-			    result = HEU_HAPIImports.HAPI_Cleanup(ref _sessionData._HAPISession);
-			    if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
-			    {
-				HandleStatusResult(result, "Clean Up Session", false, true);
-			    }
+			    HandleStatusResult(result, "Clean Up Session", false, true);
 			}
 
 			result = HEU_HAPIImports.HAPI_CloseSession(ref _sessionData._HAPISession);
 			if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 			{
-			    string errorMsg = HEU_SessionManager.GetConnectionError(true);
-			    SetSessionErrorMsg(string.Format("Closing session resulted in error."
-				+ "\nError: {0}"
-				+ "\n{1}"
-				, result, errorMsg));
+			    // Probably not possible to query more info about the session error as it might be in an invalid state.
+			    // Just clear our own session, and flag the user that there was an error on closing
+			    SetSessionErrorMsg(string.Format("Closing session resulted in error (result code: {0})", result));
 			}
 		    }
 		}
@@ -542,27 +443,6 @@ namespace HoudiniEngineUnity
 		    else
 		    {
 			throw;
-		    }
-		}
-		finally
-		{
-		    // Kill HARS if its still running
-		    if (_sessionData.ProcessID > 0)
-		    {
-			try
-			{
-			    System.Diagnostics.Process serverProcess = System.Diagnostics.Process.GetProcessById(_sessionData.ProcessID);
-			    if (serverProcess != null && !serverProcess.HasExited && serverProcess.ProcessName.Equals("HARS"))
-			    {
-				serverProcess.Kill();
-				_sessionData.ProcessID = -1;
-			    }
-			}
-			catch(System.ArgumentException)
-			{
-			    // Gets thrown if proces is invalid, so just ignore it
-			    _sessionData.ProcessID = -1;
-			}
 		    }
 		}
 
@@ -602,7 +482,6 @@ namespace HoudiniEngineUnity
 		_sessionData.SessionID = -1;
 		_sessionData.ProcessID = -1;
 		_sessionData.PipeName = "";
-		_sessionData.Port = 0;
 		_sessionData = null;
 	    }
 	}
@@ -617,18 +496,11 @@ namespace HoudiniEngineUnity
 	    {
 		StringBuilder sb = new StringBuilder();
 
-		sb.Append("\nSession Info:");
-		sb.AppendFormat("\n  Session ID: {0}", _sessionData.SessionID);
-		sb.AppendFormat("\n  Process ID: {0}", _sessionData.ProcessID);
-		sb.AppendFormat("\n  Type: {0}", _sessionData.SessionType);
+		sb.AppendFormat("Session ID: {0}\nSession Type: {1}", _sessionData.SessionID, _sessionData.SessionType);
 
-		if (_sessionData.ThisSessionMode == SessionMode.Pipe)
+		if (_sessionData.ProcessID > 0)
 		{
-		    sb.AppendFormat("\n  Mode: {0}, name: {1}", _sessionData.ThisSessionMode, _sessionData.PipeName);
-		}
-		else
-		{
-		    sb.AppendFormat("\n  Mode: {0}, port: {1}", _sessionData.ThisSessionMode, _sessionData.Port);
+		    sb.AppendFormat("\nProcess ID: {0}", _sessionData.ProcessID);
 		}
 
 		return sb.ToString();
@@ -643,8 +515,7 @@ namespace HoudiniEngineUnity
 	/// <returns>True if this session is valid.</returns>
 	public override bool IsSessionValid()
 	{
-	    // TODO: change to SessionConnectionState.CONNECTED
-	    if (_sessionData != null && ConnectionState != SessionConnectionState.FAILED_TO_CONNECT)
+	    if (_sessionData != null && ConnectedState != SessionConnectionState.FAILED_TO_CONNECT)
 	    {
 		try
 		{
@@ -731,7 +602,7 @@ namespace HoudiniEngineUnity
 	/// </summary>
 	/// <param name="sessionData">The Houdini Engine session to initliaze</param>
 	/// <returns>True if session was successfully initialized.</returns>
-	public override bool InitializeSession(HEU_SessionData sessionData)
+	private bool InitializeSession(HEU_SessionData sessionData)
 	{
 	    HAPI_CookOptions cookOptions = new HAPI_CookOptions();
 	    GetCookOptions(ref cookOptions);
@@ -745,13 +616,13 @@ namespace HoudiniEngineUnity
 	    {
 		HandleStatusResult(result, "Session Initialize failed.", true, true);
 		sessionData.IsInitialized = false;
-
-		HandleSessionConnectionFailure();
 		return false;
 	    }
 
+	    SetServerEnvString(HEU_Defines.HAPI_ENV_CLIENT_NAME, "unity");
+
 	    sessionData.IsInitialized = true;
-	    ConnectionState = SessionConnectionState.CONNECTED;
+	    ConnectedState = SessionConnectionState.CONNECTED;
 
 	    HEU_SessionManager.RegisterSession(_sessionData.SessionID, this);
 
@@ -773,22 +644,14 @@ namespace HoudiniEngineUnity
 	{
 	    if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 	    {
-		// Store the last call result so that we can check later
-		LastCallResultCode = result;
+		//int resultCode;
+		//HEU_HAPIWrapper.HAPI_GetStatus(ref sessionData._HAPISession, HAPI_StatusType.HAPI_STATUS_CALL_RESULT, out resultCode);
 
 		string statusMessage = GetStatusString(HAPI_StatusType.HAPI_STATUS_CALL_RESULT, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_WARNINGS);
 		string errorMsg = string.Format("{0} : {1}\nIf session is invalid, try restarting Unity.", prependMsg, statusMessage);
 		SetSessionErrorMsg(errorMsg, bLogError);
 
-		bThrowError &= ThrowErrorOverride;
-		if (result == HAPI_Result.HAPI_RESULT_INVALID_SESSION)
-		{
-		    // Turn off errors when invalid session after first error
-		    ThrowErrorOverride = false;
-		    LogErrorOverride = false;
-		}
-
-		if (bThrowError)
+		if (ThrowErrorOverride && bThrowError)
 		{
 		    throw new HEU_HoudiniEngineError(errorMsg);
 		}
@@ -869,42 +732,22 @@ namespace HoudiniEngineUnity
 	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
 	}
 
-	public override bool GetCallResult(out HAPI_Result result)
+	/// <summary>
+	/// Gives back the status code for a specific status type
+	/// </summary>
+	/// <param name="statusType">Status type to query</param>
+	/// <param name="statusCode">Result status code</param>
+	/// <returns>True if successfully queried status</returns>
+	public override bool GetStatus(HAPI_StatusType statusType, out HAPI_State statusCode)
 	{
-	    int resultID = 0;
-	    HAPI_Result statusResult = HEU_HAPIImports.HAPI_GetStatus(ref _sessionData._HAPISession, HAPI_StatusType.HAPI_STATUS_CALL_RESULT, out resultID);
-	    if (statusResult != HAPI_Result.HAPI_RESULT_SUCCESS)
-	    {
-		SetSessionErrorMsg(string.Format("HAPI_GetStatus for cook state failed!"));
-	    }
-
-	    result = (HAPI_Result)resultID;
-	    return (statusResult == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool GetCookResult(out HAPI_Result result)
-	{
-	    int resultID = 0;
-	    HAPI_Result statusResult = HEU_HAPIImports.HAPI_GetStatus(ref _sessionData._HAPISession, HAPI_StatusType.HAPI_STATUS_COOK_RESULT, out resultID);
-	    if (statusResult != HAPI_Result.HAPI_RESULT_SUCCESS)
-	    {
-		SetSessionErrorMsg(string.Format("HAPI_GetStatus for cook state failed!"));
-	    }
-
-	    result = (HAPI_Result)resultID;
-	    return (statusResult == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool GetCookState(out HAPI_State state)
-	{
-	    int stateID = 0;
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetStatus(ref _sessionData._HAPISession, HAPI_StatusType.HAPI_STATUS_COOK_STATE, out stateID);
+	    int status = 0;
+	    HAPI_Result result = HEU_HAPIImports.HAPI_GetStatus(ref _sessionData._HAPISession, statusType, out status);
 	    if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 	    {
-		SetSessionErrorMsg(string.Format("HAPI_GetStatus for cook state failed!"));
+		SetSessionErrorMsg(string.Format("HAPI_GetStatus failed!"));
 	    }
 
-	    state = (HAPI_State)stateID;
+	    statusCode = (HAPI_State)status;
 	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
 	}
 
@@ -933,37 +776,6 @@ namespace HoudiniEngineUnity
 	    if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
 	    {
 		return "Failed to get status string. Likely the session is invalid.";
-	    }
-
-	    return strBuilder.ToString();
-	}
-
-	/// <summary>
-	/// Compose the node cook result string
-	/// </summary>
-	/// <param name="nodeId"> The node to parse </param>
-	/// <param name="verbosity"> The status verbosity. </param>
-	/// <returns>True if successfully queried status string</returns>
-	public override string ComposeNodeCookResult(HAPI_NodeId nodeId, HAPI_StatusVerbosity verbosity)
-	{
-	    int bufferLength = 0;
-	    HAPI_Result result = HEU_HAPIImports.HAPI_ComposeNodeCookResult(ref _sessionData._HAPISession, nodeId, verbosity, out bufferLength);
-	    if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
-	    {
-		return "";
-	    }
-
-	    if (bufferLength <= 0)
-	    {
-		return "";
-	    }
-
-	    StringBuilder strBuilder = new StringBuilder(bufferLength);
-	    result = HEU_HAPIImports.HAPI_GetComposedNodeCookResult(ref _sessionData._HAPISession, strBuilder, bufferLength);
-
-	    if (result != HAPI_Result.HAPI_RESULT_SUCCESS)
-	    {
-		return "";
 	    }
 
 	    return strBuilder.ToString();
@@ -1047,38 +859,6 @@ namespace HoudiniEngineUnity
 	    return errorsFound;
 	}
 
-	// TIME -----------------------------------------------------------------------------------------------------
-
-	public override float GetTime()
-	{
-	    float time = 0;
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetTime(ref _sessionData._HAPISession, out time);
-	    HandleStatusResult(result, "Getting Time", false, true);
-	    return time;
-	}
-
-	public override bool SetTime(float time)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SetTime(ref _sessionData._HAPISession, time);
-	    HandleStatusResult(result, "Setting Time", false, true);
-	    return result == HAPI_Result.HAPI_RESULT_SUCCESS; ;
-	}
-
-	public override bool GetUseHoudiniTime()
-	{
-	    bool enabled = false;
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetUseHoudiniTime(ref _sessionData._HAPISession, ref enabled);
-	    HandleStatusResult(result, "Getting Use Houdini Time", false, true);
-	    return enabled;
-	}
-
-	public override bool SetUseHoudiniTime(bool enable)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SetUseHoudiniTime(ref _sessionData._HAPISession, enable);
-	    HandleStatusResult(result, "Setting Use Houdini Time", false, true);
-	    return result == HAPI_Result.HAPI_RESULT_SUCCESS; ;
-	}
-
 	// ASSETS -----------------------------------------------------------------------------------------------------
 
 	/// <summary>
@@ -1110,37 +890,6 @@ namespace HoudiniEngineUnity
 		}
 	    }
 	    HandleStatusResult(result, "Loading Asset Library From File", false, true);
-
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-	/// <summary>
-	/// Loads asset from given buffer (HDA file must have been loaded and stored in buffer).
-	/// Note that this might show a dialog if there is an existing matching asset definition.
-	/// </summary>
-	/// <param name="buffer">Memory buffer containing HDA file data</param>
-	/// <param name="bAllowOverwrite">Whether to overwrite an existing matching asset definition</param>
-	/// <param name="libraryID">ID of the asset in the library</param>
-	/// <returns>True if successfully loaded the asset</returns>
-	public override bool LoadAssetLibraryFromMemory(byte[] buffer, bool bAllowOverwrite, out HAPI_StringHandle libraryID)
-	{
-	    libraryID = 0;
-	    if (buffer == null)
-	    {
-		return false;
-	    }
-
-	    HAPI_Result result = HEU_HAPIImports.HAPI_LoadAssetLibraryFromMemory(ref _sessionData._HAPISession, buffer, buffer.Length, bAllowOverwrite, out libraryID);
-	    if (result == HAPI_Result.HAPI_RESULT_ASSET_DEF_ALREADY_LOADED)
-	    {
-		if (HEU_EditorUtility.DisplayDialog("Houdini Asset Definition Overwrite",
-							"The asset file being loaded contains asset defintions " +
-							"that have already been loaded from another asset library file.\n" +
-							"Would you like to overwrite them?", "Yes", "No"))
-		{
-		    result = HEU_HAPIImports.HAPI_LoadAssetLibraryFromMemory(ref _sessionData._HAPISession, buffer, buffer.Length, true, out libraryID);
-		}
-	    }
-	    HandleStatusResult(result, "Loading Asset Library From Memory", false, true);
 
 	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
 	}
@@ -1538,7 +1287,7 @@ namespace HoudiniEngineUnity
 	}
 
 	/// <summary>
-	/// Get the geometry info on a SOP node.
+	/// Get the geoemtry info on a SOP node.
 	/// </summary>
 	/// <param name="nodeID">The SOP node ID</param>
 	/// <param name="geoInfo">Geo info to populate</param>
@@ -1663,27 +1412,6 @@ namespace HoudiniEngineUnity
 	{
 	    HAPI_Result result = HEU_HAPIImports.HAPI_GetAttributeIntData(ref _sessionData._HAPISession, nodeID, partID, name, ref attributeInfo, -1, data, start, length);
 	    HandleStatusResult(result, "Getting Attribute Int Data", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool GetAttributeUInt8Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attributeInfo, [Out] HAPI_UInt8[] data, int start, int length)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetAttributeUInt8Data(ref _sessionData._HAPISession, nodeID, partID, name, ref attributeInfo, -1, data, start, length);
-	    HandleStatusResult(result, "Getting Attribute Int8 Data", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool GetAttributeInt8Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attributeInfo, [Out] HAPI_Int8[] data, int start, int length)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetAttributeInt8Data(ref _sessionData._HAPISession, nodeID, partID, name, ref attributeInfo, -1, data, start, length);
-	    HandleStatusResult(result, "Getting Attribute Int8 Data", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool GetAttributeInt16Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attributeInfo, [Out] HAPI_Int16[] data, int start, int length)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetAttributeInt16Data(ref _sessionData._HAPISession, nodeID, partID, name, ref attributeInfo, -1, data, start, length);
-	    HandleStatusResult(result, "Getting Attribute Int16 Data", false, true);
 	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
 	}
 
@@ -1881,30 +1609,6 @@ namespace HoudiniEngineUnity
 	{
 	    HAPI_Result result = HEU_HAPIImports.HAPI_SetAttributeIntData(ref _sessionData._HAPISession, nodeID, partID, name, ref attrInfo, data, start, length);
 	    HandleStatusResult(result, "Setting Attribute Int Data", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool SetAttributeInt8Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attrInfo,
-		HAPI_Int8[] data, int start, int length)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SetAttributeInt8Data(ref _sessionData._HAPISession, nodeID, partID, name, ref attrInfo, data, start, length);
-	    HandleStatusResult(result, "Setting Attribute Int8 Data", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool SetAttributeInt16Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attrInfo,
-		HAPI_Int16[] data, int start, int length)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SetAttributeInt16Data(ref _sessionData._HAPISession, nodeID, partID, name, ref attrInfo, data, start, length);
-	    HandleStatusResult(result, "Setting Attribute Int16 Data", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool SetAttributeInt64Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attrInfo,
-		HAPI_Int64[] data, int start, int length)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SetAttributeInt64Data(ref _sessionData._HAPISession, nodeID, partID, name, ref attrInfo, data, start, length);
-	    HandleStatusResult(result, "Setting Attribute Int64 Data", false, true);
 	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
 	}
 
@@ -2450,20 +2154,6 @@ namespace HoudiniEngineUnity
 	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
 	}
 
-	public override bool SaveNodeToFile(HAPI_NodeId nodeID, string fileName)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SaveNodeToFile(ref _sessionData._HAPISession, nodeID, fileName);
-	    HandleStatusResult(result, "Saving Node To File", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool LoadNodeFromFile(string file_name, HAPI_NodeId parentNodeID, string nodeLabel, bool cook_on_load, out HAPI_NodeId newNodeID)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_LoadNodeFromFile(ref _sessionData._HAPISession, file_name, parentNodeID, nodeLabel, cook_on_load, out newNodeID);
-	    HandleStatusResult(result, "Loading Node From File", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
 	public override bool GetGeoSize(HAPI_NodeId nodeID, string format, out int size)
 	{
 	    HAPI_Result result = HEU_HAPIImports.HAPI_GetGeoSize(ref _sessionData._HAPISession, nodeID, format, out size);
@@ -2491,50 +2181,6 @@ namespace HoudiniEngineUnity
 	{
 	    HAPI_Result result = HEU_HAPIImports.HAPI_ConvertTransform(ref _sessionData._HAPISession, ref inTransform, RSTOrder, ROTOrder, out outTransform);
 	    HandleStatusResult(result, "Converting Transform", false, true);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	// SESSIONSYNC ------------------------------------------------------------------------------------------------
-
-	public override bool GetTotalCookCount(HAPI_NodeId nodeID, HAPI_NodeTypeBits nodeTypeFilter, HAPI_NodeFlagsBits nodeFlagFilter, bool includeChildren, out int count)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetTotalCookCount(ref _sessionData._HAPISession, nodeID, nodeTypeFilter, nodeFlagFilter, includeChildren, out count);
-	    HandleStatusResult(result, "Getting Total Cook Count", false, false);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool SetSessionSync(bool enable)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SetSessionSync(ref _sessionData._HAPISession, enable);
-	    HandleStatusResult(result, "Setting SessionSync", false, false);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool GetViewport(ref HAPI_Viewport viewport)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetViewport(ref _sessionData._HAPISession,  out viewport);
-	    HandleStatusResult(result, "Getting Viewport", false, false);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool SetViewport(ref HAPI_Viewport viewport)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SetViewport(ref _sessionData._HAPISession, ref viewport);
-	    HandleStatusResult(result, "Setting Viewport", false, false);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool GetSessionSyncInfo(ref HAPI_SessionSyncInfo syncInfo)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_GetSessionSyncInfo(ref _sessionData._HAPISession, out syncInfo);
-	    HandleStatusResult(result, "Getting SessionSyncInfo", false, false);
-	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
-	}
-
-	public override bool SetSessionSyncInfo(ref HAPI_SessionSyncInfo syncInfo)
-	{
-	    HAPI_Result result = HEU_HAPIImports.HAPI_SetSessionSyncInfo(ref _sessionData._HAPISession, ref syncInfo);
-	    HandleStatusResult(result, "Setting SessionSyncInfo", false, false);
 	    return (result == HAPI_Result.HAPI_RESULT_SUCCESS);
 	}
 

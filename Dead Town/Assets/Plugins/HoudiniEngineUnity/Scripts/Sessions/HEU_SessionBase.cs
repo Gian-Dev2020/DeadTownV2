@@ -34,9 +34,6 @@ namespace HoudiniEngineUnity
 {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Typedefs (copy these from HEU_Common.cs)
-    using HAPI_UInt8 = System.Byte;
-    using HAPI_Int8 = System.SByte;
-    using HAPI_Int16 = System.Int16;
     using HAPI_Int64 = System.Int64;
     using HAPI_StringHandle = System.Int32;
     using HAPI_ErrorCodeBits = System.Int32;
@@ -62,29 +59,13 @@ namespace HoudiniEngineUnity
 	// Whether user has been notified of this session is invalid (so we don't keep doing it)
 	public bool UserNotifiedSessionInvalid { get; set; }
 
-	public SessionConnectionState ConnectionState
+	public enum SessionConnectionState
 	{
-	    get
-	    {
-		return _sessionData != null ? _sessionData.ThisConnectionMode : SessionConnectionState.NOT_CONNECTED;
-	    }
-	    set
-	    {
-		if (_sessionData != null) { _sessionData.ThisConnectionMode = value; }
-	    }
+	    NOT_CONNECTED,
+	    CONNECTED,
+	    FAILED_TO_CONNECT
 	}
-
-	public SessionMode ThisSessionMode
-	{
-	    get
-	    {
-		return _sessionData != null ? _sessionData.ThisSessionMode : SessionMode.Socket;
-	    }
-	    set
-	    {
-		if (_sessionData != null) { _sessionData.ThisSessionMode = value; }
-	    }
-	}
+	public SessionConnectionState ConnectedState { get; set; }
 
 	// The last error message for this session
 	private string _sessionErrorMsg;
@@ -96,44 +77,6 @@ namespace HoudiniEngineUnity
 
 	// Override for throwing session errors
 	public bool ThrowErrorOverride { get; set; }
-
-	public bool IsSessionSync() { return (_sessionData != null) ? _sessionData.IsSessionSync : false; }
-
-	// Holds the last HAPI call result code
-	public HAPI_Result LastCallResultCode { get; set; }
-
-	private StringBuilder _cookLogs = new StringBuilder();
-	private int _currentCookLogCount = 0;
-	private const int MAX_COOK_LOG_COUNT = 9001;
-
-	public string GetCookLogString() { return _cookLogs.ToString(); }
-	public void AppendCookLog(string logStr) {
-	    if (!HEU_PluginSettings.WriteCookLogs)
-	    {
-		return;
-	    }
-
-	    if (_currentCookLogCount == MAX_COOK_LOG_COUNT)
-	    {
-		string cur = _cookLogs.ToString();
-		int newLine = cur.IndexOf('\n');
-		cur = cur.Substring(newLine);
-		_cookLogs.Remove(0, newLine+1);
-		_cookLogs.AppendLine(logStr);
-	    }
-	    else
-	    {
-		_cookLogs.AppendLine(logStr);
-	        _currentCookLogCount++;
-	    }
-	}
-
-	public void ClearCookLog()
-	{
-	    _cookLogs = new StringBuilder();
-	    _currentCookLogCount = 0;
-	}
-
 
 	// ASSET REGISTRATION -----------------------------------------------------------------------------------------------
 
@@ -226,37 +169,6 @@ namespace HoudiniEngineUnity
 	    }
 	}
 
-	/// <summary>
-	/// Special handler for connection error messages.
-	/// </summary>
-	/// <param name="introMsg">The first part of the error message</param>
-	/// <param name="result">HAPI result code</param>
-	/// <param name="bLogError">Whether to also log the error</param>
-	public virtual void SetSessionConnectionErrorMsg(string introMsg, HAPI_Result result, bool bIsHARSRunning, bool bLogError = false)
-	{
-	    string connectionError = HEU_SessionManager.GetConnectionError(true);
-	    string errorMsg = string.Format("{0}"
-		+ "\nHARS was running: {1}"
-		+ "\n\n----------------------------------------"
-		+ "\nCode: {2}"
-		+ "\n{3}"
-		+ "\n------------------------------------------"
-		+ "\n\nPlease try the following:"
-		+ "\n\nCheck connection settings in HoudiniEngine > Plugin Settings > SESSION."
-		+ "\nMake sure pipe name is valid if using pipe mode, or server name and port are valid if using socket mode."
-		+ "\nRevert to default if not sure."
-		+ "\n\nForce close and reset sessions via HoudiniEngine > Session > Close All Sessions (then try again)."
-		+ "\n\nCheck that Houdini is installed here: {4}"
-		+ "\nYou can reinstall Houdini and Unity plugin."
-		+ "\nOr override Houdini install location in HoudiniEngine > Plugin Settings > GENERAL"
-		+ "\n\nRestart Unity and try again."
-		+ "\n\nKill any HARS process on local machine. Or restart machine if not sure."
-		+ "\n\nNote this message will be logged to Console."
-		, introMsg, bIsHARSRunning, result, connectionError, HEU_Platform.GetHoudiniEnginePath());
-
-	    SetSessionErrorMsg(errorMsg, bLogError);
-	}
-
 	public virtual void SetLibraryErrorMsg(bool bLogError = false)
 	{
 	    string msg = string.Format(
@@ -290,21 +202,12 @@ namespace HoudiniEngineUnity
 	    return false;
 	}
 
-	public virtual bool CreateThriftSocketSession(bool bIsDefaultSession, 
-	    string hostName = HEU_Defines.HEU_SESSION_LOCALHOST, 
-	    int serverPort = HEU_Defines.HEU_SESSION_PORT, 
-	    bool autoClose = HEU_Defines.HEU_SESSION_AUTOCLOSE, 
-	    float timeout = HEU_Defines.HEU_SESSION_TIMEOUT, 
-	    bool bLogError = true)
+	public virtual bool CreateThriftSocketSession(bool bIsDefaultSession, string hostName = HEU_Defines.HEU_SESSION_LOCALHOST, int serverPort = HEU_Defines.HEU_SESSION_PORT, bool autoClose = HEU_Defines.HEU_SESSION_AUTOCLOSE, float timeout = HEU_Defines.HEU_SESSION_TIMEOUT, bool bLogError = true)
 	{
 	    return false;
 	}
 
-	public virtual bool CreateThriftPipeSession(bool bIsDefaultSession, 
-	    string pipeName = HEU_Defines.HEU_SESSION_PIPENAME, 
-	    bool autoClose = HEU_Defines.HEU_SESSION_AUTOCLOSE, 
-	    float timeout = HEU_Defines.HEU_SESSION_TIMEOUT, 
-	    bool bLogError = true)
+	public virtual bool CreateThriftPipeSession(bool bIsDefaultSession, string pipeName = HEU_Defines.HEU_SESSION_PIPENAME, bool autoClose = HEU_Defines.HEU_SESSION_AUTOCLOSE, float timeout = HEU_Defines.HEU_SESSION_TIMEOUT, bool bLogError = true)
 	{
 	    return false;
 	}
@@ -314,23 +217,12 @@ namespace HoudiniEngineUnity
 	    return false;
 	}
 
-	public virtual bool ConnectThriftSocketSession(bool bIsDefaultSession, 
-	    string hostName = HEU_Defines.HEU_SESSION_LOCALHOST, 
-	    int serverPort = HEU_Defines.HEU_SESSION_PORT, 
-	    bool autoClose = HEU_Defines.HEU_SESSION_AUTOCLOSE, 
-	    float timeout = HEU_Defines.HEU_SESSION_TIMEOUT,
-	    bool logError = true,
-	    bool autoInitialize = true)
+	public virtual bool ConnectThriftSocketSession(bool bIsDefaultSession, string hostName = HEU_Defines.HEU_SESSION_LOCALHOST, int serverPort = HEU_Defines.HEU_SESSION_PORT, bool autoClose = HEU_Defines.HEU_SESSION_AUTOCLOSE, float timeout = HEU_Defines.HEU_SESSION_TIMEOUT)
 	{
 	    return false;
 	}
 
-	public virtual bool ConnectThriftPipeSession(bool bIsDefaultSession, 
-	    string pipeName = HEU_Defines.HEU_SESSION_PIPENAME, 
-	    bool autoClose = HEU_Defines.HEU_SESSION_AUTOCLOSE, 
-	    float timeout = HEU_Defines.HEU_SESSION_TIMEOUT,
-	    bool logError = true,
-	    bool autoInitialize = true)
+	public virtual bool ConnectThriftPipeSession(bool bIsDefaultSession, string pipeName = HEU_Defines.HEU_SESSION_PIPENAME, bool autoClose = HEU_Defines.HEU_SESSION_AUTOCLOSE, float timeout = HEU_Defines.HEU_SESSION_TIMEOUT)
 	{
 	    return false;
 	}
@@ -425,11 +317,6 @@ namespace HoudiniEngineUnity
 	    return false;
 	}
 
-	public virtual bool InitializeSession(HEU_SessionData sessionData)
-	{
-	    return false;
-	}
-
 	public virtual bool HandleStatusResult(HAPI_Result result, string prependMsg, bool bThrowError, bool bLogError)
 	{
 	    return false;
@@ -459,21 +346,15 @@ namespace HoudiniEngineUnity
 	    return false;
 	}
 
-	public virtual bool GetCallResult(out HAPI_Result result)
+	/// <summary>
+	/// Gives back the status code for a specific status type
+	/// </summary>
+	/// <param name="statusType">Status type to query</param>
+	/// <param name="statusCode">Result status code</param>
+	/// <returns>True if successfully queried status</returns>
+	public virtual bool GetStatus(HAPI_StatusType statusType, out HAPI_State statusCode)
 	{
-	    result = HAPI_Result.HAPI_RESULT_SUCCESS;
-	    return false;
-	}
-
-	public virtual bool GetCookResult(out HAPI_Result result)
-	{
-	    result = HAPI_Result.HAPI_RESULT_SUCCESS;
-	    return false;
-	}
-
-	public virtual bool GetCookState(out HAPI_State state)
-	{
-	    state = HAPI_State.HAPI_STATE_READY;
+	    statusCode = HAPI_State.HAPI_STATE_READY;
 	    return false;
 	}
 
@@ -486,17 +367,6 @@ namespace HoudiniEngineUnity
 	public virtual string GetStatusString(HAPI_StatusType statusType, HAPI_StatusVerbosity verbosity)
 	{
 	    return "Unsupported plugin configuration.";
-	}
-
-	/// <summary>
-	/// Compose the node cook result string
-	/// </summary>
-	/// <param name="nodeId"> The node to parse </param>
-	/// <param name="verbosity"> The status verbosity. </param>
-	/// <returns>True if successfully queried status string</returns>
-	public virtual string ComposeNodeCookResult(HAPI_NodeId nodeId, HAPI_StatusVerbosity verbosity)
-	{
-	    return "";
 	}
 
 	/// <summary>
@@ -552,28 +422,6 @@ namespace HoudiniEngineUnity
 	    return 0;
 	}
 
-	// TIME -----------------------------------------------------------------------------------------------------
-
-	public virtual float GetTime()
-	{
-	    return 0;
-	}
-
-	public virtual bool SetTime(float time)
-	{
-	    return false;
-	}
-
-	public virtual bool GetUseHoudiniTime()
-	{
-	    return false;
-	}
-
-	public virtual bool SetUseHoudiniTime(bool enable)
-	{
-	    return false;
-	}
-
 	// ASSETS -----------------------------------------------------------------------------------------------------
 
 	/// <summary>
@@ -584,12 +432,6 @@ namespace HoudiniEngineUnity
 	/// <param name="libraryID">ID of the asset in the library</param>
 	/// <returns>True if successfully loaded the asset.</returns>
 	public virtual bool LoadAssetLibraryFromFile(string assetPath, bool bAllowOverwrite, out HAPI_StringHandle libraryID)
-	{
-	    libraryID = 0;
-	    return false;
-	}
-
-	public virtual bool LoadAssetLibraryFromMemory(byte[] buffer, bool bAllowOverwrite, out HAPI_StringHandle libraryID)
 	{
 	    libraryID = 0;
 	    return false;
@@ -1013,21 +855,6 @@ namespace HoudiniEngineUnity
 	    return false;
 	}
 
-	public virtual bool GetAttributeUInt8Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attributeInfo, [Out] HAPI_UInt8[] data, int start, int length)
-	{
-	    return false;
-	}
-
-	public virtual bool GetAttributeInt8Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attributeInfo, [Out] HAPI_Int8[] data, int start, int length)
-	{
-	    return false;
-	}
-
-	public virtual bool GetAttributeInt16Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attributeInfo, [Out] HAPI_Int16[] data, int start, int length)
-	{
-	    return false;
-	}
-
 	public virtual bool GetAttributeInt64Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attributeInfo, [Out] HAPI_Int64[] data, int start, int length)
 	{
 	    return false;
@@ -1171,24 +998,6 @@ namespace HoudiniEngineUnity
 
 	public virtual bool SetAttributeIntData(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attrInfo,
 		int[] data, int start, int length)
-	{
-	    return false;
-	}
-
-	public virtual bool SetAttributeInt8Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attrInfo,
-		HAPI_Int8[] data, int start, int length)
-	{
-	    return false;
-	}
-
-	public virtual bool SetAttributeInt16Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attrInfo,
-		HAPI_Int16[] data, int start, int length)
-	{
-	    return false;
-	}
-
-	public virtual bool SetAttributeInt64Data(HAPI_NodeId nodeID, HAPI_PartId partID, string name, ref HAPI_AttributeInfo attrInfo,
-		HAPI_Int64[] data, int start, int length)
 	{
 	    return false;
 	}
@@ -1589,17 +1398,6 @@ namespace HoudiniEngineUnity
 	    return false;
 	}
 
-	public virtual bool SaveNodeToFile(HAPI_NodeId nodeID, string fileName)
-	{
-	    return false;
-	}
-
-	public virtual bool LoadNodeFromFile(string file_name, HAPI_NodeId parentNodeID, string nodeLabel, bool cook_on_load, out HAPI_NodeId newNodeID)
-	{
-	    newNodeID = -1;
-	    return false;
-	}
-
 	public virtual bool GetGeoSize(HAPI_NodeId nodeID, string format, out int size)
 	{
 	    size = 0;
@@ -1621,39 +1419,6 @@ namespace HoudiniEngineUnity
 	public virtual bool ConvertTransform(ref HAPI_TransformEuler inTransform, HAPI_RSTOrder RSTOrder, HAPI_XYZOrder ROTOrder, out HAPI_TransformEuler outTransform)
 	{
 	    outTransform = new HAPI_TransformEuler();
-	    return false;
-	}
-
-	// SESSIONSYNC ------------------------------------------------------------------------------------------------
-
-	public virtual bool GetTotalCookCount(HAPI_NodeId nodeID, HAPI_NodeTypeBits nodeTypeFilter, HAPI_NodeFlagsBits nodeFlagFilter, bool includeChildren, out int count)
-	{
-	    count = 0;
-	    return false;
-	}
-
-	public virtual bool SetSessionSync(bool enable)
-	{
-	    return false;
-	}
-
-	public virtual bool GetViewport(ref HAPI_Viewport viewport)
-	{
-	    return false;
-	}
-
-	public virtual bool SetViewport(ref HAPI_Viewport viewport)
-	{
-	    return false;
-	}
-
-	public virtual bool GetSessionSyncInfo(ref HAPI_SessionSyncInfo syncInfo)
-	{
-	    return false;
-	}
-
-	public virtual bool SetSessionSyncInfo(ref HAPI_SessionSyncInfo syncInfo)
-	{
 	    return false;
 	}
     }

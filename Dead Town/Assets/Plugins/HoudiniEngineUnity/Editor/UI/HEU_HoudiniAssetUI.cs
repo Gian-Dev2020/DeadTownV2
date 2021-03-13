@@ -179,7 +179,7 @@ namespace HoudiniEngineUnity
 
 	    bool guiEnabled = GUI.enabled;
 
-	    using (new EditorGUILayout.VerticalScope())
+	    using (var hs = new EditorGUILayout.VerticalScope())
 	    {
 		DrawHeaderSection();
 
@@ -352,7 +352,6 @@ namespace HoudiniEngineUnity
 			HEU_EditorUI.DrawPropertyField(assetObject, "_autoCookOnParameterChange", "Parameter Change", "Automatically cook when a parameter changes. If off, must use Recook to cook.");
 			HEU_EditorUI.DrawPropertyField(assetObject, "_transformChangeTriggersCooks", "Transform Change", "Changing the transform (e.g. moving) the asset in Unity will invoke cook in Houdini.");
 			HEU_EditorUI.DrawPropertyField(assetObject, "_cookingTriggersDownCooks", "Downstream Cooks", "Cooking this asset will trigger dependent assets' to also cook.");
-			HEU_EditorUI.DrawPropertyField(assetObject, "_sessionSyncAutoCook", "Session Sync: Auto Cook", "When using Session Sync, this asset will automatically cook and generated output when it is cooked separately in Houdini (e.g. via parm changes).");
 		    HEU_EditorUI.EndSimpleSection();
 
 		    HEU_EditorUI.BeginSimpleSection("Miscellaneous");
@@ -734,10 +733,6 @@ namespace HoudiniEngineUnity
 				EditorGUILayout.PropertyField(bakeTargetsProp, _dragAndDropField, true);
 			    }
 			}
-
-			HEU_EditorUI.BeginSimpleSection("Bake Update");
-			HEU_EditorUI.DrawPropertyField(assetObject, "_bakeUpdateKeepPreviousTransformValues", "Keep Previous Transform Values", "Copy previous transform values when doing a Bake Update.");
-			HEU_EditorUI.EndSimpleSection();
 		    }
 		}
 	    }
@@ -747,11 +742,12 @@ namespace HoudiniEngineUnity
 
 	    return bSkipAutoCook;
 	}
+	
 
 	/// <summary>
 	/// Draw the Houdini Engine header image
 	/// </summary>
-	public static void DrawHeaderSection()
+	void DrawHeaderSection()
 	{
 	    GUI.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
 	    string fileName = HEU_EditorUI.IsEditorDarkSkin() ? "heu_hengine_d" : "heu_hengine";

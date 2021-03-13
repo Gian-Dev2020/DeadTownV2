@@ -231,8 +231,7 @@ namespace HoudiniEngineUnity
 
 	public void SetupMeshAndMaterials(HEU_HoudiniAsset asset, HAPI_PartType partType, GameObject outputGameObject)
 	{
-	    Color[] oldColors = _outputMesh != null && _outputMesh.isReadable ? 
-		_outputMesh.colors : null;
+	    Color[] oldColors = _outputMesh != null ? _outputMesh.colors : null;
 
 	    _outputMesh = null;
 	    _outputGameObject = null;
@@ -244,44 +243,41 @@ namespace HoudiniEngineUnity
 		if (meshFilter != null && meshFilter.sharedMesh != null)
 		{
 		    _outputMesh = meshFilter.sharedMesh;
+		    Color[] newColors = _outputMesh.colors;
 
-		    if (_outputMesh.isReadable)
+		    if (oldColors != null)
 		    {
-			Color[] newColors = _outputMesh.colors;
+			// Restore old colors back to newly generated mesh so
+			// as to keep color "state" for visualization
 
-			if (oldColors != null)
+			int oldLen = oldColors.Length;
+
+			if (newColors == null || newColors.Length == 0)
 			{
-			    // Restore old colors back to newly generated mesh so
-			    // as to keep color "state" for visualization
-
-			    int oldLen = oldColors.Length;
-
-			    if (newColors == null || newColors.Length == 0)
-			    {
-				newColors = new Color[_outputMesh.vertices.Length];
-			    }
-			    int newLen = newColors.Length;
-
-			    for (int i = 0; i < newLen && i < oldLen; ++i)
-			    {
-				newColors[i] = oldColors[i];
-			    }
-			    _outputMesh.colors = newColors;
-			    _outputMesh.UploadMeshData(false);
+			    newColors = new Color[_outputMesh.vertices.Length];
 			}
-			else if (newColors == null || newColors.Length == 0)
+			int newLen = newColors.Length;
+
+			for (int i = 0; i < newLen && i < oldLen; ++i)
 			{
-			    // Assign new default colors
-			    int count = _outputMesh.vertices.Length;
-			    newColors = new Color[count];
-			    for (int i = 0; i < count; ++i)
-			    {
-				newColors[i] = new Color(0.3f, 0.06f, 0.62f);
-			    }
-			    _outputMesh.colors = newColors;
-			    _outputMesh.UploadMeshData(false);
+			    newColors[i] = oldColors[i];
 			}
+			_outputMesh.colors = newColors;
+			_outputMesh.UploadMeshData(false);
 		    }
+		    else if (newColors == null || newColors.Length == 0)
+		    {
+			// Assign new default colors
+			int count = _outputMesh.vertices.Length;
+			newColors = new Color[count];
+			for (int i = 0; i < count; ++i)
+			{
+			    newColors[i] = new Color(0.3f, 0.06f, 0.62f);
+			}
+			_outputMesh.colors = newColors;
+			_outputMesh.UploadMeshData(false);
+		    }
+
 
 		}
 		else
@@ -1084,19 +1080,6 @@ namespace HoudiniEngineUnity
 		    attrData.CopyValuesTo(destAttrData);
 		    SetAttributeDataDirty(destAttrData);
 		}
-	    }
-	}
-
-	public bool IsValidStore(HEU_SessionBase session)
-	{
-	    HAPI_NodeInfo nodeInfo = new HAPI_NodeInfo();
-	    if (session.GetNodeInfo(_geoID, ref nodeInfo, false))
-	    {
-		return nodeInfo.isValid;
-	    }
-	    else
-	    {
-		return false;
 	    }
 	}
     }

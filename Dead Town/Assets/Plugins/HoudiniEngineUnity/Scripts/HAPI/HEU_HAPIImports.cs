@@ -35,9 +35,6 @@ namespace HoudiniEngineUnity
 {
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Typedefs (copy these from HEU_Common.cs)
-    using HAPI_UInt8 = System.Byte;
-    using HAPI_Int8 = System.SByte;
-    using HAPI_Int16 = System.Int16;
     using HAPI_Int64 = System.Int64;
     using HAPI_StringHandle = System.Int32;
     using HAPI_ErrorCodeBits = System.Int32;
@@ -62,10 +59,6 @@ namespace HoudiniEngineUnity
 #if HOUDINIENGINEUNITY_ENABLED
 
 	// SESSIONS ---------------------------------------------------------------------------------------------
-        
-        [DllImport(HEU_HoudiniVersion.HARC_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-        public static extern void
-        harcSetManagedHostLibrariesList(string libraries);
 
 	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
 	public static extern HAPI_Result
@@ -201,18 +194,6 @@ namespace HoudiniEngineUnity
 
 	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
 	public static extern HAPI_Result
-	HAPI_ClearConnectionError();
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_GetConnectionErrorLength(out int buffer_length);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_GetConnectionError(StringBuilder string_value, int buffer_length, [MarshalAs(UnmanagedType.U1)] bool clear);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
 	HAPI_GetCookingTotalCount(ref HAPI_Session session, out int count);
 
 	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
@@ -295,14 +276,6 @@ namespace HoudiniEngineUnity
 	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
 	public static extern HAPI_Result
 	HAPI_SetTime(ref HAPI_Session session, float time);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_GetUseHoudiniTime(ref HAPI_Session session, [MarshalAs(UnmanagedType.U1)] ref bool enabled);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_SetUseHoudiniTime(ref HAPI_Session session, [MarshalAs(UnmanagedType.U1)] bool enabled);
 
 	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
 	public static extern HAPI_Result
@@ -942,39 +915,6 @@ namespace HoudiniEngineUnity
 
 	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
 	public static extern HAPI_Result
-	HAPI_GetAttributeUInt8Data(
-		ref HAPI_Session session,
-		HAPI_NodeId node_id, HAPI_PartId part_id,
-		string name,
-		ref HAPI_AttributeInfo attr_info,
-		int stride,
-		[Out] HAPI_UInt8[] data,
-		int start, int length);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_GetAttributeInt8Data(
-		ref HAPI_Session session,
-		HAPI_NodeId node_id, HAPI_PartId part_id,
-		string name,
-		ref HAPI_AttributeInfo attr_info,
-		int stride,
-		[Out] HAPI_Int8[] data,
-		int start, int length);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_GetAttributeInt16Data(
-		ref HAPI_Session session,
-		HAPI_NodeId node_id, HAPI_PartId part_id,
-		string name,
-		ref HAPI_AttributeInfo attr_info,
-		int stride,
-		[Out] HAPI_Int16[] data,
-		int start, int length);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
 	HAPI_GetAttributeInt64Data(
 		ref HAPI_Session session,
 		HAPI_NodeId node_id, HAPI_PartId part_id,
@@ -1122,26 +1062,6 @@ namespace HoudiniEngineUnity
 		string name,
 		ref HAPI_AttributeInfo attr_info,
 		int[] data_array,
-		int start, int length);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_SetAttributeInt8Data(
-		ref HAPI_Session session,
-		HAPI_NodeId node_id, HAPI_PartId part_id,
-		string name,
-		ref HAPI_AttributeInfo attr_info,
-		HAPI_Int8[] data_array,
-		int start, int length);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_SetAttributeInt16Data(
-		ref HAPI_Session session,
-		HAPI_NodeId node_id, HAPI_PartId part_id,
-		string name,
-		ref HAPI_AttributeInfo attr_info,
-		HAPI_Int16[] data_array,
 		int start, int length);
 
 	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
@@ -1602,24 +1522,6 @@ namespace HoudiniEngineUnity
 
 	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
 	public static extern HAPI_Result
-	HAPI_SaveNodeToFile(
-		ref HAPI_Session session,
-		HAPI_NodeId node_id,
-		string file_name);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_LoadNodeFromFile(
-		ref HAPI_Session session,
-		string file_name,
-		HAPI_NodeId parent_node_id,
-		string node_label,
-		[MarshalAs(UnmanagedType.U1)] bool cook_on_load,
-		out HAPI_NodeId new_node_id
-		);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
 	HAPI_GetGeoSize(
 		ref HAPI_Session session,
 		HAPI_NodeId node_id,
@@ -1639,47 +1541,6 @@ namespace HoudiniEngineUnity
 		HAPI_NodeId node_id,
 		string format, byte[] buffer, int length);
 
-	// SESSIONSYNC ----------------------------------------------------------------------------------------------
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_GetTotalCookCount(
-		ref HAPI_Session session,
-		HAPI_NodeId node_id,
-		HAPI_NodeTypeBits node_type_filter,
-		HAPI_NodeFlagsBits node_flags_filter,
-		[MarshalAs(UnmanagedType.U1)] bool include_children,
-		out int count);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_SetSessionSync(
-	    ref HAPI_Session session,
-	    [MarshalAs(UnmanagedType.U1)] bool enable);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_GetViewport(
-	    ref HAPI_Session session,
-	    out HAPI_Viewport transform);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_SetViewport(
-	    ref HAPI_Session session,
-	    ref HAPI_Viewport transform);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_GetSessionSyncInfo(
-	    ref HAPI_Session session,
-	    out HAPI_SessionSyncInfo syncInfo);
-
-	[DllImport(HEU_HoudiniVersion.HAPI_LIBRARY, CallingConvention = CallingConvention.Cdecl)]
-	public static extern HAPI_Result
-	HAPI_SetSessionSyncInfo(
-	    ref HAPI_Session session,
-	    ref HAPI_SessionSyncInfo syncInfo);
 #endif
     }
 

@@ -56,10 +56,6 @@ namespace HoudiniEngineUnity
 	{
 	    HEU_InputInterfaceTerrain inputInterface = new HEU_InputInterfaceTerrain();
 	    HEU_InputUtility.RegisterInputInterface(inputInterface);
-	    #if UNITY_2019_2_OR_NEWER
-	        // Make sure that the default terrain material is always included in the build
-	        HEU_AssetDatabase.AddAlwaysIncludedShader("Nature/Terrain/Diffuse");
-	    #endif
 	}
 #endif
 
@@ -594,7 +590,7 @@ namespace HoudiniEngineUnity
 		return;
 	    }
 
-	    // For each prototype, fill up a string attribute owned by primitive.
+	    // For each prototype, fill up a string attribute owned by primtive.
 	    // The string format is: tree_prefab_path,bend_factor
 	    string prefabPath;
 	    float bendFactor;
@@ -721,13 +717,6 @@ namespace HoudiniEngineUnity
 		// by dividing the terrain size with it. In Houdini, this is the Grid Spacing.
 		inputData._voxelSize = terrainSize.x / inputData._terrainData.heightmapResolution;
 
-		// Adding voxel size here to account for the corner sampling.
-		// In HEU_TerrainUtility::GenerateTerrainFromVolume we subtract 1 to
-		// account for corner sampling as well. This ensures maintaining the size
-		// when roundtripping the terrain.
-		float hfSizeX = terrainSize.x + inputData._voxelSize;
-		float hfSizeY = terrainSize.z + inputData._voxelSize;
-
 		// Subtract 1 from size otherwise idt._terrainData.GetHeights fails with size out of bounds.
 		// This is the number of heightfield voxels on each dimension.
 		inputData._numPointsX = Mathf.RoundToInt(inputData._terrainData.heightmapResolution * inputData._voxelSize - inputData._voxelSize);
@@ -741,13 +730,13 @@ namespace HoudiniEngineUnity
 		// Unity terrain pivots are at bottom left, but Houdini uses centered heightfields so
 		// apply local position offset by half sizes and account for coordinate change.
 		// Subtract 1 to offset the overlap
-		inputData._transform.position[0] = (hfSizeY - inputData._voxelSize) * 0.5f;
-		inputData._transform.position[1] = -(hfSizeX - inputData._voxelSize) * 0.5f;
+		inputData._transform.position[0] = (terrainSize.z - inputData._voxelSize) * 0.5f;
+		inputData._transform.position[1] = -(terrainSize.x - inputData._voxelSize) * 0.5f;
 		inputData._transform.position[2] = 0;
 
 		// Volume scale controls final size, but requires to be divided by 2
-		inputData._transform.scale[0] = hfSizeX * 0.5f;
-		inputData._transform.scale[1] = hfSizeY * 0.5f;
+		inputData._transform.scale[0] = terrainSize.x * 0.5f;
+		inputData._transform.scale[1] = terrainSize.z * 0.5f;
 		inputData._transform.scale[2] = 0.5f;
 
 		inputData._transform.rotationQuaternion[0] = 0f;

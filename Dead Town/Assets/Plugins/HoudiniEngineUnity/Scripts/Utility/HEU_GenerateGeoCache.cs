@@ -34,9 +34,6 @@ using System.Collections.Generic;
 
 namespace HoudiniEngineUnity
 {
-    using HAPI_UInt8 = System.SByte;
-    using HAPI_Int8 = System.SByte;
-    using HAPI_Int16 = System.Int16;
     using HAPI_Int64 = System.Int64;
     using HAPI_NodeId = System.Int32;
     using HAPI_PartId = System.Int32;
@@ -164,7 +161,7 @@ namespace HoudiniEngineUnity
 		List<HEU_MaterialData> materialCache, string assetCacheFolderPath)
 	{
 #if HEU_PROFILER_ON
-	    float generateGeoCacheStartTime = Time.realtimeSinceStartup;
+			float generateGeoCacheStartTime = Time.realtimeSinceStartup;
 #endif
 
 	    HEU_GenerateGeoCache geoCache = new HEU_GenerateGeoCache();
@@ -219,12 +216,6 @@ namespace HoudiniEngineUnity
 	    {
 		geoCache._isMeshReadWrite = meshReadWrite != 0;
 	    }
-	    else if (geoCache._geoInfo.isEditable)
-	    {
-		// Unity changed meshe to be non-readable recently, so
-		// forcing to readable here for editable meshes (e.g. painting)
-		geoCache._isMeshReadWrite = true;
-	    }
 
 	    if (!geoCache.PopulateGeometryData(session, bUseLODGroups))
 	    {
@@ -232,7 +223,7 @@ namespace HoudiniEngineUnity
 	    }
 
 #if HEU_PROFILER_ON
-	    Debug.LogFormat("GENERATE GEO CACHE TIME:: {0}", (Time.realtimeSinceStartup - generateGeoCacheStartTime));
+			Debug.LogFormat("GENERATE GEO CACHE TIME:: {0}", (Time.realtimeSinceStartup - generateGeoCacheStartTime));
 #endif
 
 	    return geoCache;
@@ -394,30 +385,6 @@ namespace HoudiniEngineUnity
 			_uvsAttr[i] = System.Array.ConvertAll<int, float>(intUVs, System.Convert.ToSingle);
 		    }
 		}
-		else if (_uvsAttrInfo[i].storage == HAPI_StorageType.HAPI_STORAGETYPE_UINT8)
-		{
-		    HAPI_UInt8[] uint8UVs = new HAPI_UInt8[_uvsAttrInfo[i].count * _uvsAttrInfo[i].tupleSize];
-		    if (HEU_GeneralUtility.GetAttributeArray<HAPI_UInt8>(GeoID, PartID, uvName, ref _uvsAttrInfo[i], uint8UVs, session.GetAttributeInt8Data, _uvsAttrInfo[i].count))
-		    {
-				_uvsAttr[i] = System.Array.ConvertAll<HAPI_UInt8, float>(uint8UVs, System.Convert.ToSingle);
-		    }
-		}
-		else if (_uvsAttrInfo[i].storage == HAPI_StorageType.HAPI_STORAGETYPE_INT8)
-		{
-		    HAPI_Int8[] int8UVs = new HAPI_Int8[_uvsAttrInfo[i].count * _uvsAttrInfo[i].tupleSize];
-		    if (HEU_GeneralUtility.GetAttributeArray<HAPI_Int8>(GeoID, PartID, uvName, ref _uvsAttrInfo[i], int8UVs, session.GetAttributeInt8Data, _uvsAttrInfo[i].count))
-		    {
-				_uvsAttr[i] = System.Array.ConvertAll<HAPI_Int8, float>(int8UVs, System.Convert.ToSingle);
-		    }
-		}
-		else if (_uvsAttrInfo[i].storage == HAPI_StorageType.HAPI_STORAGETYPE_INT16)
-		{
-		    HAPI_Int16[] int16UVs = new HAPI_Int16[_uvsAttrInfo[i].count * _uvsAttrInfo[i].tupleSize];
-		    if (HEU_GeneralUtility.GetAttributeArray<HAPI_Int16>(GeoID, PartID, uvName, ref _uvsAttrInfo[i], int16UVs, session.GetAttributeInt16Data, _uvsAttrInfo[i].count))
-		    {
-				_uvsAttr[i] = System.Array.ConvertAll<HAPI_Int16, float>(int16UVs, System.Convert.ToSingle);
-		    }
-		}
 		else if (_uvsAttrInfo[i].storage == HAPI_StorageType.HAPI_STORAGETYPE_INT64)
 		{
 		    HAPI_Int64[] intUVs = new HAPI_Int64[_uvsAttrInfo[i].count * _uvsAttrInfo[i].tupleSize];
@@ -491,7 +458,7 @@ namespace HoudiniEngineUnity
 			+ "\nCurrently set as owner type {1}. Set them as per point or vertices in HDA.", _partName, _colorAttrInfo.owner);
 	    }
 
-	    _groups = HEU_SessionManager.GetGroupNames(session, GeoID, _partInfo.id, HAPI_GroupType.HAPI_GROUPTYPE_PRIM, _partInfo.isInstanced);
+	    _groups = HEU_SessionManager.GetGroupNames(GeoID, _partInfo.id, HAPI_GroupType.HAPI_GROUPTYPE_PRIM, _partInfo.isInstanced);
 
 	    _allCollisionVertexList = new int[_vertexList.Length];
 	    _allCollisionFaceIndices = new int[_partInfo.faceCount];
@@ -804,7 +771,7 @@ namespace HoudiniEngineUnity
 
 	    // Final material set is the superset of new materials and current materials
 	    int newTotalMaterials = numNewMaterials > numCurrentMaterials ? numNewMaterials : numCurrentMaterials;
-	    List<Material> finalMaterialsList = new List<Material>();
+	    finalMaterials = new Material[newTotalMaterials];
 
 	    for (int i = 0; i < newTotalMaterials; ++i)
 	    {
@@ -816,33 +783,30 @@ namespace HoudiniEngineUnity
 			if (currentMaterials[i] != previousMaterials[i])
 			{
 			    // Material has been overriden by user. Keep it.
-			    finalMaterialsList.Add(currentMaterials[i]);
+			    finalMaterials[i] = currentMaterials[i];
 			}
 			else if (i < numNewMaterials)
 			{
 			    // Material is same as previously generated, so update to new
-			    finalMaterialsList.Add(newMaterials[i]);
+			    finalMaterials[i] = newMaterials[i];
 			}
 		    }
 		    else if (currentMaterials[i] == null && i < numNewMaterials)
 		    {
-			finalMaterialsList.Add(newMaterials[i]);
+			finalMaterials[i] = newMaterials[i];
 		    }
 		    else
 		    {
 			// User must have added this material, so keep it
-			finalMaterialsList.Add(currentMaterials[i]);
+			finalMaterials[i] = currentMaterials[i];
 		    }
 		}
 		else
 		{
 		    // Current material does not exist. So set new material.
-		    finalMaterialsList.Add(newMaterials[i]);
+		    finalMaterials[i] = newMaterials[i];
 		}
 	    }
-
-	    finalMaterialsList.RemoveAll((material) => material == null);
-	    finalMaterials = finalMaterialsList.ToArray();
 	}
 
 	/// <summary>

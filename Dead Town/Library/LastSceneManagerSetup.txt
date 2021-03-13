@@ -1,5 +1,5 @@
 sceneSetups:
-- path: Assets/Scenes/Dead Town.unity
+- path: Assets/Plugins/HoudiniEngineUnity/Scenes/ParamModifierExample.unity
   isLoaded: 1
   isActive: 1
   isSubScene: 0

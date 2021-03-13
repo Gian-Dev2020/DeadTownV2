@@ -76,7 +76,7 @@ namespace HoudiniEngineUnity
 	public const string HEU_SESSION_PIPENAME = "hapi";
 	public const string HEU_SESSION_LOCALHOST = "localhost";
 	public const int HEU_SESSION_PORT = 9090;
-	public const float HEU_SESSION_TIMEOUT = 10000f;
+	public const float HEU_SESSION_TIMEOUT = 2000f;
 	public const bool HEU_SESSION_AUTOCLOSE = true;
 
 	public const int HAPI_MAX_PAGE_SIZE = 20000;
@@ -318,8 +318,8 @@ namespace HoudiniEngineUnity
 	public const string HEU_SUBASSET = "SUBASSET::";
 
 	// HEngine Tools
-#if UNITY_EDITOR_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
-	public const string HEU_HENGINE_TOOLS_SHIPPED_FOLDER = "<HFS>" + HEU_HoudiniVersion.HOUDINI_FRAMEWORKS_PATH + "/Resources/engine/tools";
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+		public const string HEU_HENGINE_TOOLS_SHIPPED_FOLDER = "<HFS>" + HEU_HoudiniVersion.HOUDINI_FRAMEWORKS_PATH + "/Resources/engine/tools";
 #else
 	public const string HEU_HENGINE_TOOLS_SHIPPED_FOLDER = "<HFS>/engine/tools";
 #endif
@@ -349,8 +349,8 @@ namespace HoudiniEngineUnity
 	public const string HEU_EXT_TERRAINLAYER = ".terrainlayer";
 
 	// Keys
-#if UNITY_STANDALONE_OSX || (!UNITY_EDITOR && UNITY_STANDALONE_OSX)
-	public const string HEU_KEY_CTRL = "Command";
+#if UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX
+		public const string HEU_KEY_CTRL = "Command";
 #else
 	public const string HEU_KEY_CTRL = "Ctrl";
 #endif

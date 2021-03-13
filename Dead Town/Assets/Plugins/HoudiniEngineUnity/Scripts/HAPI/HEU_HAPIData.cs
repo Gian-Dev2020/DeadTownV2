@@ -36,9 +36,6 @@ namespace HoudiniEngineUnity
     /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Typedefs
     using HAPI_SessionId = System.Int64;
-    using HAPI_UInt8 = System.Byte;
-    using HAPI_Int8 = System.SByte;
-    using HAPI_Int16 = System.Int16;
     using HAPI_Int64 = System.Int64;
     using HAPI_StringHandle = System.Int32;
     using HAPI_ErrorCodeBits = System.Int32;
@@ -381,9 +378,6 @@ namespace HoudiniEngineUnity
 	HAPI_STORAGETYPE_FLOAT,
 	HAPI_STORAGETYPE_FLOAT64,
 	HAPI_STORAGETYPE_STRING,
-	HAPI_STORAGETYPE_UINT8,
-	HAPI_STORAGETYPE_INT8,
-	HAPI_STORAGETYPE_INT16,
 	HAPI_STORAGETYPE_MAX
     }
 
@@ -882,7 +876,7 @@ namespace HoudiniEngineUnity
 	/// This toggle lets you disable the splitting by group and just have
 	/// the geo be split by primitive type alone. By default, this is true
 	/// and therefore geos will be split by group and primitive type. If
-	/// set to false, geos will only be split by primitive type.
+	/// set to false, geos will only be split by primtive type.
 	[MarshalAs(UnmanagedType.U1)]
 	public bool splitGeosByGroup;
 
@@ -1329,7 +1323,6 @@ namespace HoudiniEngineUnity
 	    originalOwner = HAPI_AttributeOwner.HAPI_ATTROWNER_INVALID;
 	    count = 0;
 	    tupleSize = 0;
-	    totalArrayElements = 0;
 	    typeInfo = HAPI_AttributeTypeInfo.HAPI_ATTRIBUTE_TYPE_INVALID;
 	}
 
@@ -1343,7 +1336,6 @@ namespace HoudiniEngineUnity
 
 	public int count;
 	public int tupleSize;
-	HAPI_Int64 totalArrayElements;
 
 	public HAPI_AttributeTypeInfo typeInfo;
     }
@@ -1548,66 +1540,6 @@ namespace HoudiniEngineUnity
 
 	[MarshalAs(UnmanagedType.R4)]
 	public float radius;
-    }
-
-    // SESSIONSYNC --------------------------------------------------------------------------------------------------
-
-    [StructLayout(LayoutKind.Sequential)]
-    [Serializable]
-    public struct HAPI_Viewport
-    {
-	public HAPI_Viewport(bool initializeFields)
-	{
-	    position = new float[HEU_Defines.HAPI_POSITION_VECTOR_SIZE];
-	    rotationQuaternion = new float[HEU_Defines.HAPI_QUATERNION_VECTOR_SIZE];
-
-	    offset = 0;
-
-	    if (initializeFields)
-		Init();
-	}
-
-	[MarshalAs(
-		UnmanagedType.ByValArray,
-		SizeConst = HEU_Defines.HAPI_POSITION_VECTOR_SIZE,
-		ArraySubType = UnmanagedType.R4)]
-	public float[] position;
-
-	[MarshalAs(
-		UnmanagedType.ByValArray,
-		SizeConst = HEU_Defines.HAPI_QUATERNION_VECTOR_SIZE,
-		ArraySubType = UnmanagedType.R4)]
-	public float[] rotationQuaternion;
-
-	[MarshalAs(UnmanagedType.R4)]
-	public float offset;
-
-	public void Init()
-	{
-	    for (int n = 0; n < HEU_Defines.HAPI_POSITION_VECTOR_SIZE; n++)
-		position[n] = 0.0f;
-
-	    for (int n = 0; n < HEU_Defines.HAPI_QUATERNION_VECTOR_SIZE; n++)
-	    {
-		if (n == 3)
-		    rotationQuaternion[n] = .0f;
-		else
-		    rotationQuaternion[n] = 0.0f;
-	    }
-
-	    offset = 0;
-	}
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    [Serializable]
-    public struct HAPI_SessionSyncInfo
-    {
-	[MarshalAs(UnmanagedType.U1)]
-	public bool cookUsingHoudiniTime;
-
-	[MarshalAs(UnmanagedType.U1)]
-	public bool syncViewport;
     }
 
     // PDG Structs ---------------------------------------------------------------------------------------------

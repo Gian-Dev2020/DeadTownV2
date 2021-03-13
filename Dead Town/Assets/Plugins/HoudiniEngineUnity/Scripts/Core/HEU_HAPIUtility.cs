@@ -113,7 +113,16 @@ namespace HoudiniEngineUnity
 		HEU_SessionData sessionData = session.GetSessionData();
 		if (sessionData != null)
 		{
-		    sb.AppendLine(session.GetSessionInfo());
+		    sb.AppendFormat("  Session ID: {0}\n", sessionData.SessionID);
+		    sb.AppendFormat("  Session Type: {0}\n", sessionData.SessionType);
+		    sb.AppendFormat("  Process ID: {0}\n", sessionData.ProcessID);
+
+		    if (sessionData.SessionType == HAPI_SessionType.HAPI_SESSION_THRIFT)
+		    {
+			sb.AppendFormat("  Pipe name: {0}\n", sessionData.PipeName);
+		    }
+
+		    sb.AppendLine();
 		}
 	    }
 	    else // Unable to establish a session
@@ -133,7 +142,7 @@ namespace HoudiniEngineUnity
 
 	    return sb.ToString();
 #else
-	    return "";
+			return "";
 #endif
 	}
 
@@ -146,10 +155,10 @@ namespace HoudiniEngineUnity
 	{
 	    string pathStr = System.Environment.GetEnvironmentVariable("PATH", System.EnvironmentVariableTarget.Process);
 
-#if UNITY_EDITOR_WIN || (!UNITY_EDITOR && UNITY_STANDALONE_WIN)
+#if UNITY_EDITOR_WIN || UNITY_STANDALONE_WIN
 	    pathStr = pathStr.Replace(";", "\n");
-#elif (UNITY_EDITOR_OSX || UNITY_EDITOR_LINUX || (!UNITY_EDITOR && (UNITY_STANDALONE_OSX || UNITY_STANDALONE_LINUX)))
-	    pathStr = pathStr.Replace(":", "\n");
+#elif UNITY_EDITOR_OSX || UNITY_STANDALONE_OSX || UNITY_STANDALONE_LINUX
+			pathStr = pathStr.Replace(":", "\n");
 #endif
 	    return pathStr;
 	}
@@ -299,17 +308,12 @@ namespace HoudiniEngineUnity
 	}
 
 	/// <summary>
-	/// Load and instantiate an HDA asset in Unity and Houdini.
+	/// Load and instantiate an HDA asset in Unity and Houdini, for the asset located at given path.
 	/// </summary>
 	/// <param name="filePath">Full path to the HDA in Unity project</param>
 	/// <param name="initialPosition">Initial location to create the instance in Unity.</param>
-	/// <param name="session">Houdini Engine session to load into</param>
-	/// <param name="bBuildAsync">Whether to load, cook, and build asynchronously</param>
-	/// <param name="bLoadFromMemory">Whether to load file into memory, then load from memory in HAPi</param>
-	/// <returns></returns>
-	public static GameObject InstantiateHDA(string filePath, Vector3 initialPosition, HEU_SessionBase session, 
-	    bool bBuildAsync, 
-	    bool bLoadFromMemory=false)
+	/// <returns>Returns the newly created gameobject for the asset in the scene, or null if creation failed.</returns>
+	public static GameObject InstantiateHDA(string filePath, Vector3 initialPosition, HEU_SessionBase session, bool bBuildAsync)
 	{
 	    if (filePath == null || !DoesMappedPathExist(filePath))
 	    {
@@ -339,8 +343,6 @@ namespace HoudiniEngineUnity
 
 	    // Populate asset with what we know
 	    asset.SetupAsset(HEU_HoudiniAsset.HEU_AssetType.TYPE_HDA, filePath, rootGO, session);
-
-	    asset.LoadAssetFromMemory = bLoadFromMemory;
 
 	    // Build it in Houdini Engine
 	    asset.RequestReload(bBuildAsync);
@@ -451,7 +453,7 @@ namespace HoudiniEngineUnity
 	public static bool CreateAndCookCurveAsset(HEU_SessionBase session, string assetName, bool bCookTemplatedGeos, out HAPI_NodeId newAssetID)
 	{
 	    newAssetID = HEU_Defines.HEU_INVALID_NODE_ID;
-	    if (!session.CreateNode(HEU_Defines.HEU_INVALID_NODE_ID, "SOP/curve", assetName, true, out newAssetID))
+	    if (!session.CreateNode(HEU_Defines.HEU_INVALID_NODE_ID, "SOP/curve", "Curve", true, out newAssetID))
 	    {
 		return false;
 	    }
@@ -478,7 +480,7 @@ namespace HoudiniEngineUnity
 	public static bool CreateAndCookInputAsset(HEU_SessionBase session, string assetName, bool bCookTemplatedGeos, out HAPI_NodeId newAssetID)
 	{
 	    newAssetID = HEU_Defines.HEU_INVALID_NODE_ID;
-	    if (!session.CreateInputNode(out newAssetID, assetName))
+	    if (!session.CreateInputNode(out newAssetID, null))
 	    {
 		return false;
 	    }
@@ -553,10 +555,9 @@ namespace HoudiniEngineUnity
 	    // Busy wait until cooking has finished
 	    while (bResult && statusCode > HAPI_State.HAPI_STATE_MAX_READY_STATE)
 	    {
-		bResult = session.GetCookState(out statusCode);
+		bResult = session.GetStatus(HAPI_StatusType.HAPI_STATUS_COOK_STATE, out statusCode);
 
-		string cookStatus = session.GetStatusString(HAPI_StatusType.HAPI_STATUS_COOK_STATE, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_ERRORS);
-		session.AppendCookLog(cookStatus);
+		// TODO: notify user using HAPI_GetStatusString, and HAPI_GetCookingCurrentCount / HAPI_GetCookingTotalCount for % completion.
 	    }
 
 	    // Check cook results for any errors
@@ -564,14 +565,12 @@ namespace HoudiniEngineUnity
 	    {
 		// We should be able to continue even with these errors, but at least notify user.
 		string statusString = session.GetStatusString(HAPI_StatusType.HAPI_STATUS_COOK_RESULT, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_WARNINGS);
-		Debug.LogWarning(string.Format("Houdini Engine: Cooking finished with some warnings for asset: {0}\n{1}", assetName, statusString));
-		session.AppendCookLog(statusString);
+		Debug.LogWarning(string.Format("Houdini Engine: Cooking finished with some errors for asset: {0}\n{1}", assetName, statusString));
 	    }
 	    else if (statusCode == HAPI_State.HAPI_STATE_READY_WITH_FATAL_ERRORS)
 	    {
 		string statusString = session.GetStatusString(HAPI_StatusType.HAPI_STATUS_COOK_RESULT, HAPI_StatusVerbosity.HAPI_STATUSVERBOSITY_ERRORS);
 		Debug.LogError(string.Format("Houdini Engine: Cooking failed for asset: {0}\n{1}", assetName, statusString));
-		session.AppendCookLog(statusString);
 		return false;
 	    }
 	    else
@@ -640,18 +639,18 @@ namespace HoudiniEngineUnity
 	/// Creates a new Curve asset in scene, as well as in a Houdini session.
 	/// </summary>
 	/// <returns>A valid curve asset gameobject or null if failed.</returns>
-	public static GameObject CreateNewCurveAsset(string name = "HoudiniCurve", Transform parentTransform = null, HEU_SessionBase session = null, bool bBuildAsync = true)
+	public static GameObject CreateNewCurveAsset(Transform parentTransform = null, HEU_SessionBase session = null, bool bBuildAsync = true)
 	{
-	    return CreateNewAsset(HEU_HoudiniAsset.HEU_AssetType.TYPE_CURVE, name, parentTransform, session, bBuildAsync);
+	    return CreateNewAsset(HEU_HoudiniAsset.HEU_AssetType.TYPE_CURVE, "HoudiniCurve", parentTransform, session, bBuildAsync);
 	}
 
 	/// <summary>
 	/// Creates a new input asset in scene, as well as in a Houdini session.
 	/// </summary>
 	/// <returns>A valid input asset gameobject or null if failed.</returns>
-	public static GameObject CreateNewInputAsset(string name = "HoudiniInput", Transform parentTransform = null, HEU_SessionBase session = null, bool bBuildAsync = true)
+	public static GameObject CreateNewInputAsset(Transform parentTransform = null, HEU_SessionBase session = null, bool bBuildAsync = true)
 	{
-	    return CreateNewAsset(HEU_HoudiniAsset.HEU_AssetType.TYPE_INPUT, name, parentTransform, session, bBuildAsync);
+	    return CreateNewAsset(HEU_HoudiniAsset.HEU_AssetType.TYPE_INPUT, "HoudiniInput", parentTransform, session, bBuildAsync);
 	}
 
 	/// <summary>
@@ -797,7 +796,7 @@ namespace HoudiniEngineUnity
 	/// </summary>
 	/// <param name="hapiTransform">Houdini Engine transform to get data from</param>
 	/// <param name="unityTransform">The Unity transform to apply data to</param>
-	public static void ApplyWorldTransfromFromHoudiniToUnity(ref HAPI_Transform hapiTransform, Transform unityTransform)
+	public static void ApplyWorldTransfromFromHoudiniToUnity(HAPI_Transform hapiTransform, Transform unityTransform)
 	{
 	    // Houdini uses right-handed coordinate system, while Unity uses left-handed.
 	    // Note: we always use global transform space when communicating with Houdini
@@ -1015,40 +1014,6 @@ namespace HoudiniEngineUnity
 	    return transform;
 	}
 
-	public static HAPI_Transform GetHAPITransformQuatFromMatrix(ref Matrix4x4 mat)
-	{
-	    Quaternion q = GetQuaternion(ref mat);
-	    Vector3 r = q.eulerAngles;
-
-	    Vector3 p = GetPosition(ref mat);
-	    Vector3 s = GetScale(ref mat);
-
-	    HAPI_Transform transform = new HAPI_Transform(true);
-
-	    transform.position[0] = -p[0];
-	    transform.position[1] = p[1];
-	    transform.position[2] = p[2];
-
-	    Quaternion rotation = mat.rotation;
-	    Vector3 euler = rotation.eulerAngles;
-	    euler.y = -euler.y;
-	    euler.z = -euler.z;
-	    rotation = Quaternion.Euler(euler);
-
-	    transform.rotationQuaternion[0] = rotation.x;
-	    transform.rotationQuaternion[1] = rotation.y;
-	    transform.rotationQuaternion[2] = rotation.z;
-	    transform.rotationQuaternion[3] = rotation.w;
-
-	    transform.scale[0] = s[0];
-	    transform.scale[1] = s[1];
-	    transform.scale[2] = s[2];
-
-	    transform.rstOrder = HAPI_RSTOrder.HAPI_SRT;
-
-	    return transform;
-	}
-
 	public static Matrix4x4 GetMatrix4x4(ref Vector3 p, ref Vector3 r, ref Vector3 s)
 	{
 	    Matrix4x4 matrix = new Matrix4x4();
@@ -1060,81 +1025,6 @@ namespace HoudiniEngineUnity
 	{
 	    // TODO: optimize this
 	    return (transformMatrix == GetMatrix4x4(ref p, ref r, ref s));
-	}
-
-	public static bool IsEqualTol(float a, float b, float t = 0.00001f)
-	{
-	    return Mathf.Abs(a - b) <= t;
-	}
-
-	public static bool IsTransformEqual(ref HAPI_Transform transA, ref HAPI_Transform transB)
-	{
-	    int length = transA.position.Length;
-	    for (int n = 0; n < length; n++)
-	    {
-		if (!IsEqualTol(transA.position[n], transB.position[n]))
-		{
-		    return false;
-		}
-	    }
-
-	    length = transA.rotationQuaternion.Length;
-	    for (int n = 0; n < length; n++)
-	    {
-		if (!IsEqualTol(transA.rotationQuaternion[n], transB.rotationQuaternion[n]))
-		{
-		    return false;
-		}
-	    }
-
-	    length = transA.scale.Length;
-	    for (int n = 0; n < length; n++)
-	    {
-		if (!IsEqualTol(transA.scale[n], transB.scale[n]))
-		{
-		    return false;
-		}
-	    }
-
-	    length = transA.shear.Length;
-	    for (int n = 0; n < length; n++)
-	    {
-		if (!IsEqualTol(transA.shear[n], transB.shear[n]))
-		{
-		    return false;
-		}
-	    }
-
-	    return transA.rstOrder == transB.rstOrder;
-	}
-
-	public static bool IsViewportEqual(ref HAPI_Viewport viewA, ref HAPI_Viewport viewB)
-	{
-	    int length = viewA.position.Length;
-	    for (int n = 0; n < length; n++)
-	    {
-		if (!IsEqualTol(viewA.position[n], viewB.position[n]))
-		{
-		    return false;
-		}
-	    }
-
-	    length = viewA.rotationQuaternion.Length;
-	    for (int n = 0; n < length; n++)
-	    {
-		if (!IsEqualTol(viewA.rotationQuaternion[n], viewB.rotationQuaternion[n]))
-		{
-		    return false;
-		}
-	    }
-
-	    return viewA.offset == viewB.offset;
-	}
-
-	public static bool IsSessionSyncEqual(ref HAPI_SessionSyncInfo syncA, ref HAPI_SessionSyncInfo syncB)
-	{
-	    return syncA.cookUsingHoudiniTime == syncB.cookUsingHoudiniTime
-		&& syncA.syncViewport == syncB.syncViewport;
 	}
 
 	public static bool DoesGeoPartHaveAttribute(HEU_SessionBase session, HAPI_NodeId geoID, HAPI_PartId partID, string attrName, HAPI_AttributeOwner owner, ref HAPI_AttributeInfo attributeInfo)
