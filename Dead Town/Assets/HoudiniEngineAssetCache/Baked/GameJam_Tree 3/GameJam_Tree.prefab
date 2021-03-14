@@ -8748,5 +8748,6 @@ MonoBehaviour:
       m_Topology: 0
     m_Mesh: {fileID: 0}
   m_SkinMeshRef: {fileID: 0}
-  m_OriginalMeshObject: {fileID: 0}
+  m_OriginalMeshObject: {fileID: 4300000, guid: 87ba81c57b92e0e4791496cced3d870f,
+    type: 2}
   m_Mode: 0
