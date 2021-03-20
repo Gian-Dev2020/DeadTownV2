@@ -115,7 +115,7 @@ MonoBehaviour:
   m_MinSize: {x: 679, y: 492}
   m_MaxSize: {x: 14002, y: 14042}
   vertical: 0
-  controlID: 65
+  controlID: 34
 --- !u!114 &6
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -140,7 +140,7 @@ MonoBehaviour:
   m_MinSize: {x: 403, y: 492}
   m_MaxSize: {x: 10001, y: 14042}
   vertical: 1
-  controlID: 66
+  controlID: 35
 --- !u!114 &7
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -165,7 +165,7 @@ MonoBehaviour:
   m_MinSize: {x: 403, y: 221}
   m_MaxSize: {x: 8003, y: 4021}
   vertical: 0
-  controlID: 67
+  controlID: 36
 --- !u!114 &8
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -307,9 +307,9 @@ MonoBehaviour:
   m_SceneHierarchy:
     m_TreeViewState:
       scrollPos: {x: 0, y: 0}
-      m_SelectedIDs: 7c94ffff
-      m_LastClickedID: -27524
-      m_ExpandedIDs: 5e9fffff66fbffff58540000
+      m_SelectedIDs: 
+      m_LastClickedID: 0
+      m_ExpandedIDs: 0e9effff66fbffff7a540000
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -369,9 +369,9 @@ MonoBehaviour:
   m_PlayAudio: 0
   m_AudioPlay: 0
   m_Position:
-    m_Target: {x: 22.476694, y: 7.8453465, z: -13.642987}
+    m_Target: {x: 48.544495, y: 6.888098, z: -29.304123}
     speed: 2
-    m_Value: {x: 22.476694, y: 7.8453465, z: -13.642987}
+    m_Value: {x: 48.544495, y: 6.888098, z: -29.304123}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 0
@@ -417,13 +417,13 @@ MonoBehaviour:
     m_GridAxis: 1
     m_gridOpacity: 0.5
   m_Rotation:
-    m_Target: {x: -0.18056521, y: -0.24866219, z: 0.048765063, w: -0.95057267}
+    m_Target: {x: 0.067584984, y: 0.24253084, z: -0.018919358, w: 0.9678535}
     speed: 2
-    m_Value: {x: -0.18337901, y: -0.2484646, z: 0.04950142, w: -0.94983536}
+    m_Value: {x: 0.06606116, y: 0.24540196, z: -0.018748954, w: 0.9669862}
   m_Size:
-    m_Target: 0.32207757
+    m_Target: 0.5235146
     speed: 2
-    m_Value: 0.02207756
+    m_Value: 0.82351464
   m_Ortho:
     m_Target: 0
     speed: 2
@@ -618,20 +618,20 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Working/Materials/Made_Mats
+    - Assets/Working/Materials/Substance/Made_Mats
   m_ViewMode: 1
   m_StartGridSize: 64
   m_LastFolders:
-  - Assets/Working/Materials/Made_Mats
+  - Assets/Working/Materials/Substance/Made_Mats
   m_LastFoldersGridSize: -1
   m_LastProjectPath: C:\Users\giant\Documents\GitHub\DeadTownV2\Dead Town
   m_LockTracker:
     m_IsLocked: 0
   m_FolderTreeState:
-    scrollPos: {x: 0, y: 318}
-    m_SelectedIDs: b2580000
-    m_LastClickedID: 22706
-    m_ExpandedIDs: 00000000aa4f00006456000066560000685600006a5600006c5600006e56000070560000725600007456000076560000785600007a5600007c560000
+    scrollPos: {x: 0, y: 394}
+    m_SelectedIDs: f0580000
+    m_LastClickedID: 22768
+    m_ExpandedIDs: 00000000ae4f000096560000985600009a5600009c5600009e560000a0560000a2560000a4560000a6560000a8560000aa560000ac560000ae560000b0560000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -659,7 +659,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 00000000aa4f00006456000066560000685600006a5600006c5600006e56000070560000725600007456000076560000785600007a5600007c560000
+    m_ExpandedIDs: 00000000ae4f000096560000985600009a5600009c5600009e560000a0560000a2560000a4560000a6560000a8560000aa560000ac560000ae560000b0560000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -687,7 +687,7 @@ MonoBehaviour:
     m_SelectedInstanceIDs: 
     m_LastClickedInstanceID: 0
     m_HadKeyboardFocusLastEvent: 1
-    m_ExpandedInstanceIDs: c6230000ca4000009e72000000000000da4300008e3d0000b44a00009a3e0000624c0000b63c0000666e00005c5e0000
+    m_ExpandedInstanceIDs: c6230000ca4000009e72000000000000da4300008e3d0000b44a00009a3e0000624c0000b63c0000666e00005c5e0000ac660000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -703,7 +703,7 @@ MonoBehaviour:
       m_IsRenaming: 0
       m_OriginalEventType: 11
       m_IsRenamingFilename: 1
-      m_ClientGUIView: {fileID: 9}
+      m_ClientGUIView: {fileID: 10}
     m_CreateAssetUtility:
       m_EndAction: {fileID: 0}
       m_InstanceID: 0
@@ -862,6 +862,8 @@ MonoBehaviour:
     height: 750
   m_ViewDataDictionary: {fileID: 0}
   modes:
+  - {fileID: 0}
+  - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
