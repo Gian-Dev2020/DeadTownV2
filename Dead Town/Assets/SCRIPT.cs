@@ -36,6 +36,7 @@ public class SCRIPT : MonoBehaviour
     void movement()
     {
         float x;
+        x = 0;
 
         if (Input.GetKey(KeyCode.DownArrow))
         {
