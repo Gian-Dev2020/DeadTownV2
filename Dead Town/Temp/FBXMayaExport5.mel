@@ -1,0 +1,22 @@
+print "Starting maya loading and fbx conversion \n";
+	
+if (`file -q -exists "C:/Users/giant/DOCUME~1/GitHub/DEADTO~1/DEADTO~1/Assets/Working/MOUNTA~1.MA"`)
+{		
+	file -o "C:/Users/giant/DOCUME~1/GitHub/DEADTO~1/DEADTO~1/Assets/Working/MOUNTA~1.MA";
+	FBXExportEmbeddedTextures -v false;
+	// FBXExportHardEdges -v true;
+	FBXExportApplyConstantKeyReducer -v false;
+	FBXExportShowUI -v false;
+
+	print "Before fbx export\n";
+	FBXExport -f "C:/Users/giant/DOCUME~1/GitHub/DEADTO~1/DEADTO~1/Temp/ExportedFBXFile.fbx";
+	print "after fbx export\n";
+}
+else
+	print "Could not open Maya file.";
+
+sysFile -delete "C:/Users/giant/DOCUME~1/GitHub/DEADTO~1/DEADTO~1/Temp/CommandPipe";
+
+$donepipeKill = `fopen "C:/Users/giant/DOCUME~1/GitHub/DEADTO~1/DEADTO~1/Temp/SyncPipeKill" "w"`;
+fwrite $donepipeKill "Done";
+fclose $donepipeKill;
