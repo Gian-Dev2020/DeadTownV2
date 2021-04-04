@@ -32,7 +32,7 @@ public class Character_Control : MonoBehaviour
             controller.Move(direction * speed * Time.deltaTime);
 
             float Angle = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
-            transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+            transform.rotation = Quaternion.Euler(0f, Angle, 0f);
         }
     }
 }
