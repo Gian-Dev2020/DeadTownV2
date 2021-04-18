@@ -49,7 +49,7 @@ public class Controller_Anim : MonoBehaviour
         bool Left = Input.GetKey("a");
         bool Right = Input.GetKey("d");
 
-        // if the W key is pressed boolean Move is set to true
+        // if the corresponding key is pressed boolean Move is set to true
         if (Forward)
         {
             animator.SetBool("Forward", true);
@@ -60,7 +60,17 @@ public class Controller_Anim : MonoBehaviour
             animator.SetBool("Backward", true);
         }
 
-        // if W is released then the boolean Move is set to false
+        if (Left)
+        {
+            animator.SetBool("Left", true);
+        }
+
+        if (Right)
+        {
+            animator.SetBool("Right", true);
+        }
+
+        // if the corresponding key is released then the boolean Move is set to false
         if (!Forward)
         {
             animator.SetBool("Forward", false);
@@ -69,6 +79,16 @@ public class Controller_Anim : MonoBehaviour
         if (!Backward)
         {
             animator.SetBool("Backward", false);
+        }
+
+        if (!Left)
+        {
+            animator.SetBool("Left", false);
+        }
+
+        if (!Right)
+        {
+            animator.SetBool("Right", false);
         }
     }
 }
