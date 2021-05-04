@@ -115,7 +115,7 @@ MonoBehaviour:
   m_MinSize: {x: 679, y: 492}
   m_MaxSize: {x: 14002, y: 14042}
   vertical: 0
-  controlID: 56
+  controlID: 16
 --- !u!114 &6
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -140,7 +140,7 @@ MonoBehaviour:
   m_MinSize: {x: 403, y: 492}
   m_MaxSize: {x: 10001, y: 14042}
   vertical: 1
-  controlID: 57
+  controlID: 17
 --- !u!114 &7
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -165,7 +165,7 @@ MonoBehaviour:
   m_MinSize: {x: 403, y: 221}
   m_MaxSize: {x: 8003, y: 4021}
   vertical: 0
-  controlID: 58
+  controlID: 18
 --- !u!114 &8
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -400,9 +400,9 @@ MonoBehaviour:
   m_SceneHierarchy:
     m_TreeViewState:
       scrollPos: {x: 0, y: 0}
-      m_SelectedIDs: e08e0700
-      m_LastClickedID: 495328
-      m_ExpandedIDs: 708ffbff8091fbff20fdfbffbc00fcffc66ffcffe0cbfcff22cffcfff635fdff7239fdff409bfdff5af7fdff1cf9fdffd659feff985bfeff16d6feff30d8feff60dbfeff96dcfeff98defeffa239ffffaa94ffff4896ffff22f8ffff66fbffff22670000e26f00009ac8020046ca02009ad10200d23f03005e0a0400ca700400ae0106004c6306003c8c0700648e0700
+      m_SelectedIDs: 22560000
+      m_LastClickedID: 22050
+      m_ExpandedIDs: 66fbffff96530000d853000036540000
       m_RenameOverlay:
         m_UserAcceptedRename: 0
         m_Name: 
@@ -462,9 +462,9 @@ MonoBehaviour:
   m_PlayAudio: 0
   m_AudioPlay: 0
   m_Position:
-    m_Target: {x: 61.42493, y: 6.912233, z: -42.8177}
+    m_Target: {x: 61.731995, y: 7.13233, z: -32.95045}
     speed: 2
-    m_Value: {x: 61.42493, y: 6.912233, z: -42.8177}
+    m_Value: {x: 61.731995, y: 7.13233, z: -32.950455}
   m_RenderMode: 0
   m_CameraMode:
     drawMode: 0
@@ -510,13 +510,13 @@ MonoBehaviour:
     m_GridAxis: 1
     m_gridOpacity: 0.5
   m_Rotation:
-    m_Target: {x: 0.05571271, y: 0.0316348, z: -0.0029545324, w: 0.9981253}
+    m_Target: {x: 0.10070582, y: -0.49787694, z: 0.05669672, w: 0.8597376}
     speed: 2
-    m_Value: {x: 0.055702478, y: 0.03162899, z: -0.0029539897, w: 0.997942}
+    m_Value: {x: 0.10068637, y: -0.4977808, z: 0.05668577, w: 0.8595716}
   m_Size:
-    m_Target: 0.15591265
+    m_Target: 0.68210095
     speed: 2
-    m_Value: 0.15591265
+    m_Value: 0.68210244
   m_Ortho:
     m_Target: 0
     speed: 2
@@ -781,20 +781,20 @@ MonoBehaviour:
     m_SkipHidden: 0
     m_SearchArea: 1
     m_Folders:
-    - Assets/Scenes
+    - Assets/Scripts/Editor
   m_ViewMode: 1
   m_StartGridSize: 64
   m_LastFolders:
-  - Assets/Scenes
+  - Assets/Scripts/Editor
   m_LastFoldersGridSize: -1
   m_LastProjectPath: C:\Users\giant\Documents\GitHub\DeadTownV2\Dead Town
   m_LockTracker:
     m_IsLocked: 0
   m_FolderTreeState:
-    scrollPos: {x: 0, y: 138}
-    m_SelectedIDs: 02560000
-    m_LastClickedID: 22018
-    m_ExpandedIDs: 00000000ea4f0000fc530000fe53000000540000025400000454000006540000085400000a5400000c5400000e540000105400001254000014540000165400001854000014560000
+    scrollPos: {x: 0, y: 170}
+    m_SelectedIDs: 92680000
+    m_LastClickedID: 26770
+    m_ExpandedIDs: 00000000ea4f0000f8580000fa580000fc580000fe58000000590000025900000459000006590000085900000a5900000c5900000e590000105900001259000014590000205b0000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -822,7 +822,7 @@ MonoBehaviour:
     scrollPos: {x: 0, y: 0}
     m_SelectedIDs: 
     m_LastClickedID: 0
-    m_ExpandedIDs: 00000000ea4f0000fc530000fe53000000540000025400000454000006540000085400000a5400000c5400000e5400001054000012540000145400001654000018540000
+    m_ExpandedIDs: 00000000ea4f0000f8580000fa580000fc580000fe58000000590000025900000459000006590000085900000a5900000c5900000e590000105900001259000014590000
     m_RenameOverlay:
       m_UserAcceptedRename: 0
       m_Name: 
@@ -947,7 +947,7 @@ MonoBehaviour:
   m_ViewDataDictionary: {fileID: 0}
   m_LockTracker:
     m_IsLocked: 0
-  m_LastSelectedObjectID: 494636
+  m_LastSelectedObjectID: 21464
 --- !u!114 &21
 MonoBehaviour:
   m_ObjectHideFlags: 52
@@ -1238,6 +1238,8 @@ MonoBehaviour:
   - {fileID: 0}
   - {fileID: 0}
   - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
   brushSettingsAsset: {fileID: 11400000, guid: e9779dd921d21e64397b8e0b475d3ca3, type: 2}
 --- !u!114 &24
 MonoBehaviour:
@@ -1276,4 +1278,4 @@ MonoBehaviour:
     m_PrefName: Preview_InspectorPreview
   m_PreviewWindow: {fileID: 0}
   m_LastInspectedObjectInstanceID: -1
-  m_LastVerticalScrollValue: 159
+  m_LastVerticalScrollValue: 360
